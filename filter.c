@@ -60,22 +60,25 @@ int main(int argc, char *argv[])
     BITMAPINFOHEADER bi;
     fread(&bi, sizeof(BITMAPINFOHEADER), 1, inptr);
 
-    // Ensure infile is (likely) a 24-bit uncompressed BMP 4.0
-    if (bf.bfType != 0x4d42 || bf.bfOffBits != 54 || bi.biSize != 124 ||
-        bi.biBitCount != 24 || bi.biCompression != 0)
+    // Ensure infile is (likely) a uncompressed BMP 5.0
+    if (bf.signature != 0x4d42 || bf.dataOffset != 138 || bi.size != 124 ||
+        bi.bitCount != 24 || bi.compression != 0)
     {
         fclose(outptr);
         fclose(inptr);
+        
         printf("Unsupported file format.\n\n");
-        printf("bfType: %x, bfOffBits: %d, biSize: %d, biBitCount: %d, biCompression: %d", bf.bfType, bf.bfOffBits, bi.biSize, bi.biBitCount, bi.biCompression);
+        printf("bfType: %x, bfOffBits: %d, biSize: %d, biBitCount: %d, biCompression: %d", bf.signature, bf.dataOffset, bi.size, bi.bitCount, bi.compression);
+
         printf("Expected BITMAPFILEOHEADER size: %li\n", sizeof(BITMAPFILEHEADER));
-        printf("Input BITMAPFILEHEADER size: %u\n", bf.bfSize);
+        printf("Input BITMAPFILEHEADER size: %u\n", bf.fileSize);
+        
         return 6;
     }
 
     // Get image's dimensions
-    int height = abs(bi.biHeight);
-    int width = bi.biWidth;
+    int height = abs(bi.bitHeight);
+    int width = abs(bi.bitWidth);
 
     // Allocate memory for image
     RGBTRIPLE(*image)[width] = calloc(height, width * sizeof(RGBTRIPLE));
