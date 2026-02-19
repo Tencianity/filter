@@ -5,11 +5,12 @@ typedef uint8_t BYTE;
 typedef uint32_t DWORD;
 typedef int32_t LONG;
 typedef uint16_t WORD;
+
 typedef struct
 {
-    LONG x;
-    LONG y;
-    LONG z;
+    WORD x;
+    WORD y;
+    WORD z;
 } __attribute__((__packed__))
 COLORPOINT;
 
@@ -38,13 +39,13 @@ typedef struct {
     DWORD        clrUsed;
     DWORD        clrImportant;
     DWORD        redMask;
-    DWORD        greeMask;
+    DWORD        greenMask;
     DWORD        blueMask;
     DWORD        alphaMask;
     DWORD        csType;
-    COLORPOINT   redXYZ;
-    COLORPOINT   greenXYZ;
-    COLORPOINT   blueXYZ;
+    COLORPOINT   redVector3;
+    COLORPOINT   greenVector3;
+    COLORPOINT   blueVector3;
     DWORD        gammaRed;
     DWORD        gammaGreen;
     DWORD        gammeBlue;
@@ -57,8 +58,8 @@ typedef struct {
 // Define how a RGBTRIPLE (pixel) is structured
 typedef struct
 {
-	BYTE rgbtBlue;
-	BYTE rgbtGreen;
-	BYTE rgbtRed;
+	WORD rgbtBlue;
+	WORD rgbtGreen;
+	WORD rgbtRed;
 } __attribute__((__packed__))
 RGBTRIPLE;

@@ -146,6 +146,29 @@ int main(int argc, char *argv[])
         }
     }
 
+    char* compressionType = "";
+    switch (bi.compression) {
+        case 0: compressionType = "None"; break;
+        case 1: compressionType = "BI_RLE8"; break;
+        case 2: compressionType = "BI_RLE4"; break;
+        case 3: compressionType = "BI_BITFIELDS"; break;
+        case 4: compressionType = "BI_JPEG"; break;
+        case 5: compressionType = "BI_PNG"; break;
+        case 6: compressionType = "BO_ALPHABITFIELDS"; break;
+        case 11: compressionType = "BI_CMYK"; break;
+        case 12: compressionType = "BO_CMYKRLE8"; break;
+        case 13: compressionType = "BI_CMYKRLE4"; break;
+        default: compressionType = "Unkown";
+    }
+
+    printf("\n~~~~ BITMAPINFOHEADER ~~~~\n");
+    printf("Size: %u, Bit Width: %d, Bit Height: %d, Compression Type: %s\n",
+        bi.size, bi.bitWidth, bi.bitHeight, compressionType);
+    printf("Masks (RGB): %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask);
+    printf("Color Points (RGB): (%u, %u, %u), (%u, %u, %u), (%u, %u, %u)\n\n",
+        bi.redVector3.x, bi.redVector3.y, bi.redVector3.z,
+        bi.greenVector3.x, bi.greenVector3.y, bi.greenVector3.z,
+        bi.blueVector3.x, bi.blueVector3.y, bi.blueVector3.z);
     // Free memory for image
     free(image);
 
