@@ -12,7 +12,7 @@ typedef struct
     LONG y;
     LONG z;
 } __attribute__((__packed__))
-COLORPOINT;
+CIEXYZ;
 
 // Define the file header for bmp image files
 typedef struct
@@ -43,9 +43,9 @@ typedef struct {
     DWORD        blueMask;
     DWORD        alphaMask;
     DWORD        csType;
-    COLORPOINT   redVector3;
-    COLORPOINT   greenVector3;
-    COLORPOINT   blueVector3;
+    CIEXYZ       redPoint;
+    CIEXYZ       greenPoint;
+    CIEXYZ       bluePoint;
     DWORD        gammaRed;
     DWORD        gammaGreen;
     DWORD        gammeBlue;
@@ -58,8 +58,8 @@ typedef struct {
 // Define how a RGBTRIPLE (pixel) is structured
 typedef struct
 {
-	COLORPOINT rgbtBlue;
-	COLORPOINT rgbtGreen;
-	COLORPOINT rgbtRed;
+	CIEXYZ rgbtBlue;
+	CIEXYZ rgbtGreen;
+	CIEXYZ rgbtRed;
 } __attribute__((__packed__))
 RGBTRIPLE;
