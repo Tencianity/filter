@@ -8,9 +8,9 @@ typedef uint16_t WORD;
 
 typedef struct
 {
-    WORD x;
-    WORD y;
-    WORD z;
+    LONG x;
+    LONG y;
+    LONG z;
 } __attribute__((__packed__))
 COLORPOINT;
 
@@ -58,8 +58,8 @@ typedef struct {
 // Define how a RGBTRIPLE (pixel) is structured
 typedef struct
 {
-	WORD rgbtBlue;
-	WORD rgbtGreen;
-	WORD rgbtRed;
+	COLORPOINT rgbtBlue;
+	COLORPOINT rgbtGreen;
+	COLORPOINT rgbtRed;
 } __attribute__((__packed__))
 RGBTRIPLE;

@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
     // Determine padding for scanlines
     int padding = (4 - (width * sizeof(RGBTRIPLE)) % 4) % 4;
 
+    printf("Reading input .bmp file...\n");
     // Iterate over infile's scanlines
     for (int i = 0; i < height; i++)
     {
@@ -102,6 +103,7 @@ int main(int argc, char *argv[])
         // Skip over padding
         fseek(inptr, padding, SEEK_CUR);
     }
+    printf("done reading.\n");
 
     // Filter image
     switch (filter)
@@ -148,23 +150,54 @@ int main(int argc, char *argv[])
 
     char* compressionType = "";
     switch (bi.compression) {
-        case 0: compressionType = "None"; break;
-        case 1: compressionType = "BI_RLE8"; break;
-        case 2: compressionType = "BI_RLE4"; break;
-        case 3: compressionType = "BI_BITFIELDS"; break;
-        case 4: compressionType = "BI_JPEG"; break;
-        case 5: compressionType = "BI_PNG"; break;
-        case 6: compressionType = "BO_ALPHABITFIELDS"; break;
-        case 11: compressionType = "BI_CMYK"; break;
-        case 12: compressionType = "BO_CMYKRLE8"; break;
-        case 13: compressionType = "BI_CMYKRLE4"; break;
-        default: compressionType = "Unkown";
+        case 0: 
+            compressionType = "None"; 
+            break;
+        case 1: 
+            compressionType = "BI_RLE8";
+            break;
+        case 2: 
+            compressionType = "BI_RLE4";
+            break;
+        case 3: 
+            compressionType = "BI_BITFIELDS";
+            break;
+        case 4: 
+            compressionType = "BI_JPEG";
+            break;
+        case 5: 
+            compressionType = "BI_PNG"; 
+            break;
+        case 6: 
+            compressionType = "BO_ALPHABITFIELDS"; 
+            break;
+        case 11: 
+            compressionType = "BI_CMYK";
+            break;
+        case 12: 
+            compressionType = "BO_CMYKRLE8"; 
+            break;
+        case 13: 
+            compressionType = "BI_CMYKRLE4"; 
+            break;
+        default: 
+            compressionType = "Unkown";
     }
 
+    printf("\n~~~~ BITMAPFILEHEADER ~~~~\n");
+
+    printf("Signature: %x, File Size: %u, reserved1: %d, reserved2: %d, Offset: %d\n\n",
+        bf.signature, bf.fileSize, bf.reserved1, bf.reserved2, bf.dataOffset);
+
     printf("\n~~~~ BITMAPINFOHEADER ~~~~\n");
-    printf("Size: %u, Bit Width: %d, Bit Height: %d, Compression Type: %s\n",
-        bi.size, bi.bitWidth, bi.bitHeight, compressionType);
-    printf("Masks (RGB): %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask);
+
+    printf("Size: %u, Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
+        bi.size, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
+        bi.bitCount, bi.compression, compressionType, 
+        bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
+    
+    printf("Masks (RGBa): %u %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask, bi.alphaMask);
+    printf("CS Type: %u\n", bi.csType);
     printf("Color Points (RGB): (%u, %u, %u), (%u, %u, %u), (%u, %u, %u)\n\n",
         bi.redVector3.x, bi.redVector3.y, bi.redVector3.z,
         bi.greenVector3.x, bi.greenVector3.y, bi.greenVector3.z,
