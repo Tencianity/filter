@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "helpers.h"
 
@@ -60,9 +61,17 @@ int main(int argc, char *argv[])
     BITMAPINFOHEADER bi;
     fread(&bi, sizeof(BITMAPINFOHEADER), 1, inptr);
 
-    // Ensure infile is (likely) a uncompressed BMP 5.0
-    if (bf.signature != 0x4d42 || bf.dataOffset != 138 || bi.size != 124 ||
-        bi.bitCount != 24 || bi.compression != 0)
+    char* infoheader = getInfoHeaderType(bi.size);
+
+    // Ensure infile INFOHEADER is V5
+    if (strcmp(infoheader, "BITMAPV5HEADER")) // 1 if different
+    {
+        printf("INFOHEADER should be of type BITMAPV5HEADER but is of type %s", infoheader);
+        return 7;
+    }
+
+    // Ensure infile is (likely) an uncompressed BMP 5.0
+    if (bf.signature != 0x4d42 || bf.dataOffset != 138 || bi.size != 124 || bi.bitCount != 24 || bi.compression != 0)
     {
         fclose(outptr);
         fclose(inptr);
@@ -75,13 +84,14 @@ int main(int argc, char *argv[])
         
         return 6;
     }
+    printf("\n\nsizeof(BITMAPINFOHEADER): %lu\n\n", sizeof(BITMAPINFOHEADER));
 
     // Get image's dimensions
     int height = abs(bi.bitHeight);
     int width = abs(bi.bitWidth);
 
     // Allocate memory for image
-    RGBTRIPLE(*image)[width] = calloc(height, width * sizeof(RGBTRIPLE));
+    CIEXYZ(*image)[width] = calloc(height, width * sizeof(CIEXYZ));
     if (image == NULL)
     {
         printf("Not enough memory to store image.\n");
@@ -91,20 +101,22 @@ int main(int argc, char *argv[])
     }
 
     // Determine padding for scanlines
-    int padding = (4 - (width * sizeof(RGBTRIPLE)) % 4) % 4;
+    int padding = (4 - (width * sizeof(CIEXYZ)) % 4) % 4;
 
     printf("Reading input .bmp file...\n");
     // Iterate over infile's scanlines
     for (int i = 0; i < height; i++)
     {
         // Read row into pixel array
-        fread(image[i], sizeof(RGBTRIPLE), width, inptr);
+        fread(image[i], sizeof(CIEXYZ), width, inptr);
 
         // Skip over padding
         fseek(inptr, padding, SEEK_CUR);
     }
     printf("done reading.\n");
 
+
+    printf("Filtering pixels of image...\n");
     // Filter image
     switch (filter)
     {
@@ -128,6 +140,7 @@ int main(int argc, char *argv[])
             sepia(height, width, image);
             break;
     }
+    printf("done filter image pixels.\n");
 
     // Write outfile's BITMAPFILEHEADER
     fwrite(&bf, sizeof(BITMAPFILEHEADER), 1, outptr);
@@ -135,11 +148,12 @@ int main(int argc, char *argv[])
     // Write outfile's BITMAPINFOHEADER
     fwrite(&bi, sizeof(BITMAPINFOHEADER), 1, outptr);
 
+    printf("Writing filtered pixels to outfile...\n");
     // Write new pixels to outfile
     for (int i = 0; i < height; i++)
     {
         // Write row to outfile
-        fwrite(image[i], sizeof(RGBTRIPLE), width, outptr);
+        fwrite(image[i], sizeof(CIEXYZ), width, outptr);
 
         // Write padding at end of row
         for (int k = 0; k < padding; k++)
@@ -147,6 +161,7 @@ int main(int argc, char *argv[])
             fputc(0x00, outptr);
         }
     }
+    printf("doen writing to outfile.\n\n");
 
     char* compressionType = "";
     switch (bi.compression) {
@@ -191,17 +206,15 @@ int main(int argc, char *argv[])
 
     printf("\n~~~~ BITMAPINFOHEADER ~~~~\n");
 
-    printf("Size: %u, Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
-        bi.size, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
+    printf("Size: %u (%s), Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
+        bi.size, infoheader, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
         bi.bitCount, bi.compression, compressionType, 
         bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
     
     printf("Masks (RGBa): %u %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask, bi.alphaMask);
     printf("CS Type: %u\n", bi.csType);
-    printf("Color Points (RGB): (%u, %u, %u), (%u, %u, %u), (%u, %u, %u)\n\n",
-        bi.redVector3.x, bi.redVector3.y, bi.redVector3.z,
-        bi.greenVector3.x, bi.greenVector3.y, bi.greenVector3.z,
-        bi.blueVector3.x, bi.blueVector3.y, bi.blueVector3.z);
+    // printf("Color Points (RGB): (%u), (%u), (%u)\n\n",
+    //     bi.colorPoint.x, bi.colorPoint.y, bi.colorPoint.z);
     // Free memory for image
     free(image);
 
