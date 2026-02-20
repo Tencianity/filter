@@ -57,17 +57,19 @@ int main(int argc, char *argv[])
     BITMAPFILEHEADER bf;
     fread(&bf, sizeof(BITMAPFILEHEADER), 1, inptr);
 
+    int headerSize = bf.dataOffset - (14 * sizeof(BYTE));
+
     // Read infile's BITMAPINFOHEADER
     BITMAPINFOHEADER bi;
-    fread(&bi, sizeof(BITMAPINFOHEADER), 1, inptr);
+    fread(&bi, headerSize, 1, inptr);
 
     char* infoheader = getInfoHeaderType(bi.size);
 
     // Ensure infile INFOHEADER is V5
     if (strcmp(infoheader, "BITMAPV5HEADER")) // 1 if different
     {
-        printf("INFOHEADER should be of type BITMAPV5HEADER but is of type %s", infoheader);
-        return 7;
+        printf("INFOHEADER should be of type BITMAPV5HEADER but is of type %s\n", infoheader);
+        // return 7;
     }
 
     // Ensure infile is (likely) an uncompressed BMP 5.0
@@ -82,7 +84,7 @@ int main(int argc, char *argv[])
         printf("Expected BITMAPFILEOHEADER size: %li\n", sizeof(BITMAPFILEHEADER));
         printf("Input BITMAPFILEHEADER size: %u\n", bf.fileSize);
         
-        return 6;
+        // return 6;
     }
     printf("\n\nsizeof(BITMAPINFOHEADER): %lu\n\n", sizeof(BITMAPINFOHEADER));
 
@@ -91,7 +93,7 @@ int main(int argc, char *argv[])
     int width = abs(bi.bitWidth);
 
     // Allocate memory for image
-    CIEXYZ(*image)[width] = calloc(height, width * sizeof(CIEXYZ));
+    RGB(*image)[width] = calloc(height, width * sizeof(RGB));
     if (image == NULL)
     {
         printf("Not enough memory to store image.\n");
@@ -101,14 +103,14 @@ int main(int argc, char *argv[])
     }
 
     // Determine padding for scanlines
-    int padding = (4 - (width * sizeof(CIEXYZ)) % 4) % 4;
+    int padding = (4 - (width * sizeof(RGB)) % 4) % 4;
 
     printf("Reading input .bmp file...\n");
     // Iterate over infile's scanlines
     for (int i = 0; i < height; i++)
     {
         // Read row into pixel array
-        fread(image[i], sizeof(CIEXYZ), width, inptr);
+        fread(image[i], sizeof(RGB), width, inptr);
 
         // Skip over padding
         fseek(inptr, padding, SEEK_CUR);
@@ -140,7 +142,7 @@ int main(int argc, char *argv[])
             sepia(height, width, image);
             break;
     }
-    printf("done filter image pixels.\n");
+    printf("done filtering image pixels.\n");
 
     // Write outfile's BITMAPFILEHEADER
     fwrite(&bf, sizeof(BITMAPFILEHEADER), 1, outptr);
@@ -153,7 +155,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < height; i++)
     {
         // Write row to outfile
-        fwrite(image[i], sizeof(CIEXYZ), width, outptr);
+        fwrite(image[i], sizeof(RGB), width, outptr);
 
         // Write padding at end of row
         for (int k = 0; k < padding; k++)
@@ -212,9 +214,8 @@ int main(int argc, char *argv[])
         bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
     
     printf("Masks (RGBa): %u %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask, bi.alphaMask);
-    printf("CS Type: %u\n", bi.csType);
-    // printf("Color Points (RGB): (%u), (%u), (%u)\n\n",
-    //     bi.colorPoint.x, bi.colorPoint.y, bi.colorPoint.z);
+    printf("CS Type: %x\n", bi.csType);
+
     // Free memory for image
     free(image);
 

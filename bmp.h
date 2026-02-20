@@ -23,6 +23,14 @@ typedef struct
 } __attribute__((__packed__))
 XYZTRIPLE;
 
+typedef struct
+{
+    BYTE r;
+    BYTE g;
+    BYTE b;
+} __attribute__((__packed__))
+RGB;
+
 // Define the file header for bmp image files
 typedef struct
 {
