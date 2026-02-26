@@ -58,169 +58,64 @@ int main(int argc, char *argv[])
     fread(&bf, sizeof(BITMAPFILEHEADER), 1, inptr);
 
     int headerSize = bf.dataOffset - (14 * sizeof(BYTE));
+    char* infoheader = getInfoHeaderType(headerSize);
 
-    // Read infile's BITMAPINFOHEADER
-    BITMAPINFOHEADER bi;
-    fread(&bi, headerSize, 1, inptr);
-
-    char* infoheader = getInfoHeaderType(bi.size);
-
-    // Ensure infile INFOHEADER is V5
-    if (strcmp(infoheader, "BITMAPV5HEADER")) // 1 if different
+    switch (headerSize)
     {
-        printf("INFOHEADER should be of type BITMAPV5HEADER but is of type %s\n", infoheader);
-        // return 7;
+        case 12:
+            BITMAPCOREHEADER bc;
+            readBMCH(bf, bc, filter, inptr, outptr);
+            break;
+        case 64:
+            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
+            printf("-\tBITMAPCOREHEADER\n");
+            printf("-\tBITMAPINFOHEADER\n");
+            printf("-\tBITMAPV2INFOHEADER\n");
+            return 7;
+        case 16:
+            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
+            printf("-\tBITMAPCOREHEADER\n");
+            printf("-\tBITMAPINFOHEADER\n");
+            printf("-\tBITMAPV2INFOHEADER\n");
+            return 7;
+        case 40:
+            BITMAPINFOHEADER bi;
+            readBMIH(bf, bi, filter, inptr, outptr);
+            break;
+        case 52:
+            BITMAPV2INFOHEADER bi2;
+            readBMIH2(bf, bi2, filter, inptr, outptr);
+            break;
+        case 56:
+            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
+            printf("-\tBITMAPCOREHEADER\n");
+            printf("-\tBITMAPINFOHEADER\n");
+            printf("-\tBITMAPV2INFOHEADER\n");
+            return 7;
+        case 108:
+            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
+            printf("-\tBITMAPCOREHEADER\n");
+            printf("-\tBITMAPINFOHEADER\n");
+            printf("-\tBITMAPV2INFOHEADER\n");
+            return 7;
+        case 124:
+            BITMAPV5INFOHEADER bi5;
+            readBMIH5(bf, bi5, filter, inptr, outptr);
+            break;
+        default: // unknown
+            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
+            printf("-\tBITMAPCOREHEADER\n");
+            printf("-\tBITMAPINFOHEADER\n");
+            printf("-\tBITMAPV2INFOHEADER\n");
+            return 7;
     }
-
-    // Ensure infile is (likely) an uncompressed BMP 5.0
-    if (bf.signature != 0x4d42 || bf.dataOffset != 138 || bi.size != 124 || bi.bitCount != 24 || bi.compression != 0)
-    {
-        fclose(outptr);
-        fclose(inptr);
-        
-        printf("Unsupported file format.\n\n");
-        printf("bfType: %x, bfOffBits: %d, biSize: %d, biBitCount: %d, biCompression: %d", bf.signature, bf.dataOffset, bi.size, bi.bitCount, bi.compression);
-
-        printf("Expected BITMAPFILEOHEADER size: %li\n", sizeof(BITMAPFILEHEADER));
-        printf("Input BITMAPFILEHEADER size: %u\n", bf.fileSize);
-        
-        // return 6;
-    }
-    printf("\n\nsizeof(BITMAPINFOHEADER): %lu\n\n", sizeof(BITMAPINFOHEADER));
-
-    // Get image's dimensions
-    int height = abs(bi.bitHeight);
-    int width = abs(bi.bitWidth);
-
-    // Allocate memory for image
-    RGB(*image)[width] = calloc(height, width * sizeof(RGB));
-    if (image == NULL)
-    {
-        printf("Not enough memory to store image.\n");
-        fclose(outptr);
-        fclose(inptr);
-        return 7;
-    }
-
-    // Determine padding for scanlines
-    int padding = (4 - (width * sizeof(RGB)) % 4) % 4;
-
-    printf("Reading input .bmp file...\n");
-    // Iterate over infile's scanlines
-    for (int i = 0; i < height; i++)
-    {
-        // Read row into pixel array
-        fread(image[i], sizeof(RGB), width, inptr);
-
-        // Skip over padding
-        fseek(inptr, padding, SEEK_CUR);
-    }
-    printf("done reading.\n");
-
-
-    printf("Filtering pixels of image...\n");
-    // Filter image
-    switch (filter)
-    {
-        // Blur
-        case 'b':
-            blur(height, width, image);
-            break;
-
-        // Grayscale
-        case 'g':
-            grayscale(height, width, image);
-            break;
-
-        // Reflection
-        case 'r':
-            reflect(height, width, image);
-            break;
-
-        // Sepia
-        case 's':
-            sepia(height, width, image);
-            break;
-    }
-    printf("done filtering image pixels.\n");
-
-    // Write outfile's BITMAPFILEHEADER
-    fwrite(&bf, sizeof(BITMAPFILEHEADER), 1, outptr);
-
-    // Write outfile's BITMAPINFOHEADER
-    fwrite(&bi, sizeof(BITMAPINFOHEADER), 1, outptr);
-
-    printf("Writing filtered pixels to outfile...\n");
-    // Write new pixels to outfile
-    for (int i = 0; i < height; i++)
-    {
-        // Write row to outfile
-        fwrite(image[i], sizeof(RGB), width, outptr);
-
-        // Write padding at end of row
-        for (int k = 0; k < padding; k++)
-        {
-            fputc(0x00, outptr);
-        }
-    }
-    printf("doen writing to outfile.\n\n");
-
-    char* compressionType = "";
-    switch (bi.compression) {
-        case 0: 
-            compressionType = "None"; 
-            break;
-        case 1: 
-            compressionType = "BI_RLE8";
-            break;
-        case 2: 
-            compressionType = "BI_RLE4";
-            break;
-        case 3: 
-            compressionType = "BI_BITFIELDS";
-            break;
-        case 4: 
-            compressionType = "BI_JPEG";
-            break;
-        case 5: 
-            compressionType = "BI_PNG"; 
-            break;
-        case 6: 
-            compressionType = "BO_ALPHABITFIELDS"; 
-            break;
-        case 11: 
-            compressionType = "BI_CMYK";
-            break;
-        case 12: 
-            compressionType = "BO_CMYKRLE8"; 
-            break;
-        case 13: 
-            compressionType = "BI_CMYKRLE4"; 
-            break;
-        default: 
-            compressionType = "Unkown";
-    }
-
-    printf("\n~~~~ BITMAPFILEHEADER ~~~~\n");
-
-    printf("Signature: %x, File Size: %u, reserved1: %d, reserved2: %d, Offset: %d\n\n",
-        bf.signature, bf.fileSize, bf.reserved1, bf.reserved2, bf.dataOffset);
-
-    printf("\n~~~~ BITMAPINFOHEADER ~~~~\n");
-
-    printf("Size: %u (%s), Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
-        bi.size, infoheader, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
-        bi.bitCount, bi.compression, compressionType, 
-        bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
     
-    printf("Masks (RGBa): %u %u %u %u\n", bi.redMask, bi.greenMask, bi.blueMask, bi.alphaMask);
-    printf("CS Type: %x\n", bi.csType);
 
-    // Free memory for image
-    free(image);
 
-    // Close files
-    fclose(inptr);
-    fclose(outptr);
+    // printf("Size: %u (%s), Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
+    //     bi.size, infoheader, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
+    //     bi.bitCount, bi.compression, compressionType, 
+    //     bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
+
     return 0;
 }
