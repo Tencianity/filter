@@ -622,17 +622,17 @@ void sepia(int height, int width, RGB image[height][width])
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
 
-            float tr = (0.393f * (float)image[i][j].r) + (0.769f * (float)image[i][j].g) + (0.189f * (float)image[i][j].b);
-            float tg = (0.349f * (float)image[i][j].r) + (0.686f * (float)image[i][j].g) + (0.168f * (float)image[i][j].b);
-            float tb = (0.272f * (float)image[i][j].r) + (0.534f * (float)image[i][j].g) + (0.131f * image[i][j].b);
+            int tr = round((.393 * image[i][j].r) + (.769 * image[i][j].g) + (.189 * image[i][j].b));
+            int tg = round((.349 * image[i][j].r) + (.686 * image[i][j].g) + (.168 * image[i][j].b));
+            int tb = round((.272 * image[i][j].r) + (.534 * image[i][j].g) + (.131 * image[i][j].b));
 
             if (tr > 255) tr = 255;
-            if (tg > 255) tr = 255;
+            if (tg > 255) tg = 255;
             if (tb > 255) tb = 255;
             
-            image[i][j].r = (int) round(tr);
-            image[i][j].g = (int) round(tg);
-            image[i][j].b = (int) round(tb);
+            image[i][j].r = tr;
+            image[i][j].g = tg;
+            image[i][j].b = tb;
             
         }
     }
@@ -667,36 +667,36 @@ void blur(int height, int width, RGB image[height][width])
     RGB (*newImage)[width] = calloc(height, width * sizeof(RGB));
     RGB sum;
     RGB average;
-    int i, j, pixles;
+    int i, j, pels;
 
     for (i = 0; i < height; i += 3) {
         for (j = 0; j < width; j += 3) {
 
             sum.r = 0; sum.g = 0; sum.b = 0;
             average.r = 0; average.g = 0; average.b = 0;
-            pixles = 1;
+            pels = 1;
 
-            // Take 3x3 slice of pixel array and average
+            // Take 3x3 slice of pixle array and average
             // the RGB values: apply to all 9 pixels.
             for (int row = -1; row <= 1; row++) {
                 if (i + row < 0 || i + row >= height) continue;
                 for (int col = -1; col <= 1; col++) {
                     if (j + col < 0 || j + col >= width) continue;
 
-                    sum.r += image[row][col].r;
-                    sum.g += image[row][col].g;
-                    sum.b += image[row][col].b;
-                    pixles++;
+                    sum.r += newImage[row][col].r;
+                    sum.g += newImage[row][col].g;
+                    sum.b += newImage[row][col].b;
+                    pels++;
                     
                 }
             }
-            average.r = (int) round(sum.r / pixles);
-            average.g = (int) round(sum.g / pixles);
-            average.b = (int) round(sum.b / pixles);
+            average.r = (int) round(sum.r / pels);
+            average.g = (int) round(sum.g / pels);
+            average.b = (int) round(sum.b / pels);
             
-            newImage[height][width].r = average.r;
-            newImage[height][width].g = average.g;
-            newImage[height][width].b = average.b;
+            image[height][width].r = average.r;
+            image[height][width].g = average.g;
+            image[height][width].b = average.b;
         }
     }
     

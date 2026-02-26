@@ -25,9 +25,9 @@ XYZTRIPLE;
 
 typedef struct
 {
-    BYTE r;
-    BYTE g;
     BYTE b;
+    BYTE g;
+    BYTE r;
 } __attribute__((__packed__))
 RGB;
 
