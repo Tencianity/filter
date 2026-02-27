@@ -33,12 +33,8 @@ int main(int argc, char *argv[])
     }
 
     // Remember filenames
-    char infile[100];
-    char outfile[100];
-    strcpy(infile, "images/");
-    strcpy(outfile, "output/");
-    strcat(infile, argv[optind]);
-    strcat(outfile, argv[optind + 1]);
+    char* infile = argv[optind];
+    char* outfile = argv[optind + 1];
 
     // Open input file
     FILE *inptr = fopen(infile, "r");

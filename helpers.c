@@ -594,7 +594,9 @@ int readBMIH5(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inp
 
 }
 
-// Convert image file into greyscale
+/*
+ * Convert image file into greyscale
+ */
 void grayscale(int height, int width, RGB image[height][width])
 {
 
@@ -646,7 +648,7 @@ void sepia(int height, int width, RGB image[height][width])
 void reflect(int height, int width, RGB image[height][width]) 
 {
     
-    for (int i = 0; i < (height) - (height % 2); i++) {
+    for (int i = 0; i < (height); i++) {
         for (int j = 0; j < (width / 2) - (width % 2); j++) {
 
             RGB original = image[i][j];
@@ -664,42 +666,41 @@ void reflect(int height, int width, RGB image[height][width])
  */
 void blur(int height, int width, RGB image[height][width]) 
 {
-    RGB (*newImage)[width] = calloc(height, width * sizeof(RGB));
-    RGB sum;
-    RGB average;
-    int i, j, pels;
+    RGB(*newImage)[width] = calloc(height, width * sizeof(RGB));
+    int sumRed, sumGreen, sumBlue, pels;
+    int i, j;
 
-    for (i = 0; i < height; i += 3) {
-        for (j = 0; j < width; j += 3) {
+    
+    i = 0; j = 0;
+    for (i = 0; i < height; i++) {
+        for (j = 0; j < width; j++) {
+            
+            sumRed = 0; sumGreen = 0; sumBlue = 0; pels = 0;
 
-            sum.r = 0; sum.g = 0; sum.b = 0;
-            average.r = 0; average.g = 0; average.b = 0;
-            pels = 1;
+            // Take 3x3 slice of pel array and average
+            // the RGB values: apply to center pel.
+            for (int row = -3; row <= 3; row++) {
+                for (int col = -3; col <= 3; col++) {
 
-            // Take 3x3 slice of pixle array and average
-            // the RGB values: apply to all 9 pixels.
-            for (int row = -1; row <= 1; row++) {
-                if (i + row < 0 || i + row >= height) continue;
-                for (int col = -1; col <= 1; col++) {
-                    if (j + col < 0 || j + col >= width) continue;
+                    if (i + row < 0 || i + row >= height
+                        || j + col < 0 || j + col >= width)
+                        {continue;}
 
-                    sum.r += newImage[row][col].r;
-                    sum.g += newImage[row][col].g;
-                    sum.b += newImage[row][col].b;
+                    sumRed += image[i + row][j + col].r;
+                    sumGreen += image[i + row][j + col].g;
+                    sumBlue += image[i + row][j + col].b;
                     pels++;
                     
                 }
             }
-            average.r = (int) round(sum.r / pels);
-            average.g = (int) round(sum.g / pels);
-            average.b = (int) round(sum.b / pels);
-            
-            image[height][width].r = average.r;
-            image[height][width].g = average.g;
-            image[height][width].b = average.b;
+
+            newImage[i][j].r = round(sumRed / pels);
+            newImage[i][j].g = round(sumGreen / pels);
+            newImage[i][j].b = round(sumBlue / pels);
         }
     }
-    
+
+    i = 0; j = 0;
     for (i = 0; i < height; i++) {
         for (j = 0; j < width; j++) {
 
@@ -710,6 +711,7 @@ void blur(int height, int width, RGB image[height][width])
         }
     }
     free(newImage);
+    
     return;
 }
 
