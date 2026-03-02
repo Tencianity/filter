@@ -1,7 +1,8 @@
-#include "helpers.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "helpers.h"
 
 // Read a BITMAPINFOHEADER BMP
 int readBMIH(BITMAPFILEHEADER bf, BITMAPINFOHEADER bi, char filter, FILE *inptr, FILE *outptr)
@@ -595,7 +596,7 @@ int readBMIH5(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inp
 }
 
 /*
- * Convert image file into greyscale
+ * Convert an array of RGB pels to their grayscale values.
  */
 void grayscale(int height, int width, RGB image[height][width])
 {
@@ -616,7 +617,7 @@ void grayscale(int height, int width, RGB image[height][width])
 }
 
 /**
- * Applies a Sepia filter to the image.
+ * Apply a sepia color filter to an array of RGB pels.
  */
 void sepia(int height, int width, RGB image[height][width]) 
 {
@@ -643,7 +644,7 @@ void sepia(int height, int width, RGB image[height][width])
 }
 
 /**
- * Flips the image about the y-axis.
+ * Reflects an array of RGB pels about the y-axis.
  */
 void reflect(int height, int width, RGB image[height][width]) 
 {
@@ -662,7 +663,7 @@ void reflect(int height, int width, RGB image[height][width])
 }
 
 /**
- * Applies a blur filter to the image.
+ * Applies a blur filter to an array of RGB pels.
  */
 void blur(int height, int width, RGB image[height][width]) 
 {

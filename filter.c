@@ -5,10 +5,10 @@
 
 #include "helpers.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Define allowable filters
-    char *filters = "bgrs";
+    char* filters = "bgrs";
 
     // Get filter flag and check validity
     char filter = getopt(argc, argv, filters);
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     // Ensure proper usage
     if (argc != optind + 2)
     {
-        printf("Usage: ./filter [flag] infile outfile\n");
+        printf("Usage: ./filter [flag (-g -s -r -b)] infile outfile\n");
         return 3;
     }
 
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     char* outfile = argv[optind + 1];
 
     // Open input file
-    FILE *inptr = fopen(infile, "r");
+    FILE* inptr = fopen(infile, "r");
     if (inptr == NULL)
     {
         printf("Could not open %s.\n", infile);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     }
 
     // Open output file
-    FILE *outptr = fopen(outfile, "w");
+    FILE* outptr = fopen(outfile, "w");
     if (outptr == NULL)
     {
         fclose(inptr);
@@ -60,6 +60,8 @@ int main(int argc, char *argv[])
     int headerSize = bf.dataOffset - (14 * sizeof(BYTE));
     char* infoheader = getInfoHeaderType(headerSize);
 
+    // Make sure program reads the correct amount of bytes
+    // for the info header type.
     switch (headerSize)
     {
         case 12:
@@ -109,13 +111,7 @@ int main(int argc, char *argv[])
             printf("-\tBITMAPV2INFOHEADER\n");
             return 7;
     }
-    
 
-
-    // printf("Size: %u (%s), Bit Width: %d, Bit Height: %d, Planes: %u, bpp: %u, Compression Bits: %x, Compression Type: %s, Image Size: %u,\n Xppm: %d, Yppm: %d, Num Colors Used: %u, Important Colors: %d\n",
-    //     bi.size, infoheader, bi.bitWidth, bi.bitHeight, bi.bitPlanes, 
-    //     bi.bitCount, bi.compression, compressionType, 
-    //     bi.imageSize, bi.xPelsPerMeter, bi.yPelsPerMeter, bi.clrUsed, bi.clrImportant);
-
+    // Finish program
     return 0;
 }
