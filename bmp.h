@@ -17,12 +17,13 @@ CIEXYZ;
 // Define how a XYZTRIPLE (pixel) is structured
 typedef struct
 {
-	CIEXYZ rgbtBlue;
-	CIEXYZ rgbtGreen;
-	CIEXYZ rgbtRed;
+	CIEXYZ bluePoint;
+	CIEXYZ greenPoint;
+	CIEXYZ redPoint;
 } __attribute__((__packed__))
 XYZTRIPLE;
 
+// Define the struct for a RGB pel
 typedef struct
 {
     BYTE b;
@@ -36,8 +37,8 @@ typedef struct
 {
 	WORD        signature;
 	DWORD       fileSize;
-	WORD        reserved1;
-	WORD        reserved2;
+	WORD        reserved1; // 0x00
+	WORD        reserved2; // 0x00
 	DWORD       dataOffset;
 } __attribute__((__packed__))
 BITMAPFILEHEADER;
@@ -67,7 +68,7 @@ typedef struct {
     DWORD       intent;
     DWORD       profileData;
     DWORD       profileSize;
-    DWORD       reserved3;
+    DWORD       reserved3; // 0x00
 } __attribute__((__packed__))
 BITMAPV5INFOHEADER;
 
@@ -110,10 +111,9 @@ typedef struct {
     DWORD       clrUsed;
     DWORD       clrImportant;
     WORD        units;
-    WORD        reserved;
+    WORD        reserved; // 0x00
     WORD        recording;
 
-    // 
     /* Haftoning algs:
      * 1 - Error Diffusion
      * 2 - PANDA
