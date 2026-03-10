@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 // Read a BITMAPINFOHEADER BMP
-int readBMIH(BITMAPFILEHEADER bf, BITMAPINFOHEADER bi, char filter, FILE *inptr, FILE *outptr);
+int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inptr, FILE *outptr);
 
 // Read a BITMAPCOREHEADER BMP
 int readBMCH(BITMAPFILEHEADER bf, BITMAPCOREHEADER bi, char filter, FILE *inptr, FILE *outptr);
@@ -25,4 +25,9 @@ void reflect(int height, int width, RGB image[height][width]);
 //Blur filter
 void blur(int height, int width, RGB image[height][width]);
 
+// Blue filter
+void blueShift(int height, int width, RGB image[height][width]);
+
 char* getInfoHeaderType(int headerSize);
+
+void printHeaderError(char* infoheader);

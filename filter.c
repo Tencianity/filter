@@ -8,7 +8,7 @@
 int main(int argc, char* argv[])
 {
     // Define allowable filters
-    char* filters = "bgrs";
+    char* filters = "bgrsa";
 
     // Get filter flag and check validity
     char filter = getopt(argc, argv, filters);
@@ -64,53 +64,30 @@ int main(int argc, char* argv[])
     // for the info header type.
     switch (headerSize)
     {
-        case 12:
-            BITMAPCOREHEADER bc;
-            readBMCH(bf, bc, filter, inptr, outptr);
-            break;
         case 64:
-            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
-            printf("-\tBITMAPCOREHEADER\n");
-            printf("-\tBITMAPINFOHEADER\n");
-            printf("-\tBITMAPV2INFOHEADER\n");
+            printHeaderError(infoheader);
             return 7;
         case 16:
-            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
-            printf("-\tBITMAPCOREHEADER\n");
-            printf("-\tBITMAPINFOHEADER\n");
-            printf("-\tBITMAPV2INFOHEADER\n");
+            printHeaderError(infoheader);
             return 7;
-        case 40:
-            BITMAPINFOHEADER bi;
-            readBMIH(bf, bi, filter, inptr, outptr);
-            break;
-        case 52:
-            BITMAPV2INFOHEADER bi2;
-            readBMIH2(bf, bi2, filter, inptr, outptr);
-            break;
         case 56:
-            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
-            printf("-\tBITMAPCOREHEADER\n");
-            printf("-\tBITMAPINFOHEADER\n");
-            printf("-\tBITMAPV2INFOHEADER\n");
+            printHeaderError(infoheader);
             return 7;
         case 108:
-            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
-            printf("-\tBITMAPCOREHEADER\n");
-            printf("-\tBITMAPINFOHEADER\n");
-            printf("-\tBITMAPV2INFOHEADER\n");
+            printHeaderError(infoheader);
             return 7;
-        case 124:
-            BITMAPV5INFOHEADER bi5;
-            readBMIH5(bf, bi5, filter, inptr, outptr);
+        default:
             break;
-        default: // unknown
-            printf("\nInfo Header is of type %s, filter only accepts:\n", infoheader);
-            printf("-\tBITMAPCOREHEADER\n");
-            printf("-\tBITMAPINFOHEADER\n");
-            printf("-\tBITMAPV2INFOHEADER\n");
-            return 7;
     }
+
+    if (infoheader == NULL)
+    {
+        printHeaderError(infoheader);
+        return 7;
+    }
+
+    BITMAPV5INFOHEADER bi;
+    readBMIH(bf, bi, filter, inptr, outptr);
 
     // Finish program
     return 0;
