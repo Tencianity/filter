@@ -85,8 +85,15 @@ int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inpt
         case 's':
             sepia(height, width, image);
             break;
-        case 'a':
+        case 'x':
+            redShift(height, width, image);
+            break;
+        case 'y':
+            greenShift(height, width, image);
+            break;
+        case 'z':
             blueShift(height, width, image);
+            break;
     }
     printf("done filtering image pixels.\n");
 
@@ -246,15 +253,15 @@ void blur(int height, int width, RGB image[height][width])
     return;
 }
 
-void blueShift(int height, int width, RGB image[height][width])
+void redShift(int height, int width, RGB image[height][width])
 {
     for (int i = 0; i < height; i++)
     {
         for (int j = 0; j < width; j++)
         {
-            int tr = image[i][j].r * 0.90;
-            int tg = image[i][j].g * 0.90;
-            int tb = image[i][j].b * 1.25;
+            int tr = image[i][j].r * 1.25f;
+            int tg = image[i][j].g * 0.90f;
+            int tb = image[i][j].b * 0.90f;
             
             if (tr > 255) tr = 255;
             if (tg > 255) tg = 255;
@@ -268,6 +275,54 @@ void blueShift(int height, int width, RGB image[height][width])
     }
     return;
 }
+
+void greenShift(int height, int width, RGB image[height][width])
+{
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            int tr = image[i][j].r * 0.90f;
+            int tg = image[i][j].g * 1.25f;
+            int tb = image[i][j].b * 0.90f;
+            
+            if (tr > 255) tr = 255;
+            if (tg > 255) tg = 255;
+            if (tb > 255) tb = 255;
+
+            
+            image[i][j].r = (int) tr;
+            image[i][j].g = (int) tg;
+            image[i][j].b = (int) tb;
+        }
+    }
+    return;
+}
+
+void blueShift(int height, int width, RGB image[height][width])
+{
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            int tr = image[i][j].r * 0.90f;
+            int tg = image[i][j].g * 0.90f;
+            int tb = image[i][j].b * 1.25f;
+            
+            if (tr > 255) tr = 255;
+            if (tg > 255) tg = 255;
+            if (tb > 255) tb = 255;
+
+            
+            image[i][j].r = (int) tr;
+            image[i][j].g = (int) tg;
+            image[i][j].b = (int) tb;
+        }
+    }
+    return;
+}
+
+
 
 char* getInfoHeaderType(int headerSize) {
     switch (headerSize)

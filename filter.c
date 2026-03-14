@@ -8,7 +8,7 @@
 int main(int argc, char* argv[])
 {
     // Define allowable filters
-    char* filters = "bgrsa";
+    char* filters = "bgrsxyz";
 
     // Get filter flag and check validity
     char filter = getopt(argc, argv, filters);
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     // Ensure proper usage
     if (argc != optind + 2)
     {
-        printf("Usage: ./filter [flag (-g -s -r -b)] infile outfile\n");
+        printf("Usage: ./filter [flag (-x -y -z -g -s -r -b)] infile outfile\n");
         return 3;
     }
 
