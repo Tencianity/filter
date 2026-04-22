@@ -29,7 +29,7 @@ int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inpt
         
         // return 6;
     }
-    printf("\n\nsizeof(infoheader): %lu", sizeof(bi));
+    printf("\n\nsizeof(infoheader): %lu\n", sizeof(bi));
     printf("headersize: %d\n\n", headerSize);
 
     // Get image's dimensions
@@ -47,7 +47,8 @@ int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inpt
     }
 
     // Determine padding for scanlines
-    int padding = (4 - (width * sizeof(RGB)) % 4) % 4;
+    // int padding = (4 - (width * sizeof(RGB)) % 4) % 4;
+    int padding = (width * sizeof(RGB)) % 4;
 
     printf("Reading input .bmp file...\n");
     // Iterate over infile's scanlines
@@ -85,12 +86,18 @@ int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inpt
         case 's':
             sepia(height, width, image);
             break;
+
+        // Red
         case 'x':
             redShift(height, width, image);
             break;
+
+        // Green
         case 'y':
             greenShift(height, width, image);
             break;
+
+        // Blue
         case 'z':
             blueShift(height, width, image);
             break;
@@ -101,7 +108,7 @@ int readBMIH(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi, char filter, FILE *inpt
     fwrite(&bf, sizeof(BITMAPFILEHEADER), 1, outptr);
 
     // Write outfile's INFOHEADER
-    fwrite(&bi, sizeof(bi), 1, outptr);
+    fwrite(&bi, headerSize, 1, outptr);
 
     printf("Writing filtered pixels to outfile...\n");
     // Write new pixels to outfile
@@ -207,6 +214,7 @@ void blur(int height, int width, RGB image[height][width])
     RGB(*newImage)[width] = calloc(height, width * sizeof(RGB));
     int sumRed, sumGreen, sumBlue, pels;
     int i, j;
+    int blurriness = 3;
 
     
     i = 0; j = 0;
@@ -217,8 +225,8 @@ void blur(int height, int width, RGB image[height][width])
 
             // Take 3x3 slice of pel array and average
             // the RGB values: apply to center pel.
-            for (int row = -3; row <= 3; row++) {
-                for (int col = -3; col <= 3; col++) {
+            for (int row = -blurriness; row <= blurriness; row++) {
+                for (int col = -blurriness; col <= blurriness; col++) {
 
                     if (i + row < 0 || i + row >= height
                         || j + col < 0 || j + col >= width)
