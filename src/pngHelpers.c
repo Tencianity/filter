@@ -12,16 +12,20 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     
     // Have to reverse the 4-byte value to get actual length
     DWORD trueLength = reverseLong(length);
-    data = calloc(trueLength, sizeof(BYTE));
-
-    fread(data, sizeof(BYTE), trueLength, pngFile);
-    fread(&crc, sizeof(DWORD), 1, pngFile);
-
+    
     PNGCHUNK chunk;
     chunk.length = length;
-    strcpy(chunk.type, type);
-    chunk.data = data;
-    chunk.crc = crc;
+    memcpy(chunk.type, type, 4);
+    
+    if (trueLength != 0) {
+        data = calloc(trueLength, sizeof(BYTE));
+
+        fread(data, sizeof(BYTE), trueLength, pngFile);
+        chunk.data = data;
+    } else chunk.data = NULL;
+
+    fread(&crc, sizeof(DWORD), 1, pngFile);
+    chunk.crc = reverseLong(crc);
     
     return chunk;
 }
@@ -35,7 +39,7 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     // Make sure chunk is actually a header type
     if (strcmp(type, "IHDR")) {
         printf("%s\n", type);
-        strcpy(header.type, (char[4]) {'E', 'R', 'R', '\0'});
+        memcpy(header.type, "ERR\0", 4);
         free(type);
         return header;
     }
@@ -43,7 +47,7 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     
     // Start creating a new PNGINFOHEADER object with fields same as chunk
     header.length = chunk.length;
-    strcpy(header.type, chunk.type);
+    memcpy(header.type, chunk.type, 4);
 
     int trueLength = reverseLong(header.length);
     BYTE* data = chunk.data;
@@ -58,12 +62,45 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     return header;
 }
 
+BYTE pngVerifyChunk(PNGCHUNK chunk) {
+
+    printf("Verifying chunk...\n");
+    DWORD trueCRC = chunk.crc;
+    DWORD trueLength = reverseLong(chunk.length);
+    const static int TYPESIZE = 4;
+    BYTE *data = calloc(trueLength + TYPESIZE, sizeof(BYTE));
+
+    char *type = pngChunkType(chunk);
+
+    // set data[0:3] to bytes of the png type field
+    for (int i = 0; i < trueLength + TYPESIZE; i++) {
+        if (i < TYPESIZE) {
+            data[i] = type[i];
+        }
+        else {
+            data[i] = chunk.data[i - TYPESIZE];
+        }
+    }
+
+    DWORD estimateCRC = CRC32(data, trueLength + TYPESIZE);
+    
+    if (trueCRC != estimateCRC) {
+        printf("Chunk CRC: %x\n", trueCRC);
+        printf("Estimate CRC: %x\n", estimateCRC);
+    }
+
+    free(type);
+    free(data);
+    printf("Chunk verified!\n");
+    return trueCRC == estimateCRC;
+}
+
 /**
  * Finds the type of a PNGCHUNK with and ending '\0' char
  */
 char* pngChunkType(PNGCHUNK chunk) {
     char* type = calloc(5, sizeof(char));
-    strcpy(type, chunk.type);
+    memcpy(type, chunk.type, 4);
     type[4] = '\0';
     return type;
 }
@@ -87,15 +124,27 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     // Read all chunks of the png into an array of PNGCHUNK types
     int numChunks = 0;
     int readingChunks = TRUE;
+
     while (readingChunks) {
+        printf("Reading chunk...\n");
         PNGCHUNK chunk = pngReadChunk(inptr);
+        printf("Chunk read!\n");
+        char* type = pngChunkType(chunk);
         
-        if (!strcmp(pngChunkType(chunk), "IEND")) {
+        if (!strcmp(type, "IEND")) {
             readingChunks = FALSE;
             printf("\nReached end chunk.\n");
         }
 
+        if (!pngVerifyChunk(chunk)) {
+            printf("BAD CHUNK.\n");
+            free(type);
+            free(chunks);
+            return -1;
+        }
+
         chunks[numChunks++] = chunk;
+        free(type);
     }
     printf("done!\n");
 

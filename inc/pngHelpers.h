@@ -4,12 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "png.h"
 #include "CRC32.h"
 
 PNGCHUNK pngReadChunk(FILE* pngFile);
 PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk);
+BYTE pngVerifyChunk(PNGCHUNK chunk);
 char* pngChunkType(PNGCHUNK chunk);
 int filterPNG(PNGHEADER pf, PNGINFOHEADER pi, char filter, FILE* inptr, FILE* outptr);
 
