@@ -117,8 +117,8 @@ int main(int argc, char* argv[])
     else if (!strcmp(getFileType(infile), "png")) {
         PNGHEADER pf;
         fread(&pf, sizeof(PNGHEADER), 1, inptr);
-        PNGCHUNK headerChunk = pngReadChunk(inptr);
-        PNGINFOHEADER pi = pngConvertChunkToHeader(headerChunk);
+        PNGINFOHEADER pi;
+        fread(&pi, sizeof(PNGINFOHEADER), 1, inptr);
 
         if (!strcmp(pi.type, "ERR")) return 22;
         

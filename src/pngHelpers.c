@@ -19,13 +19,18 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     
     if (trueLength != 0) {
         data = calloc(trueLength, sizeof(BYTE));
-
+        
         fread(data, sizeof(BYTE), trueLength, pngFile);
         chunk.data = data;
     } else chunk.data = NULL;
-
+    
     fread(&crc, sizeof(DWORD), 1, pngFile);
-    chunk.crc = reverseLong(crc);
+    chunk.crc = crc;
+    
+    if (strcmp(pngChunkType(chunk), "IEND"))
+        printf("%s, ", pngChunkType(chunk));
+    else
+        printf("%s\n", pngChunkType(chunk));
     
     return chunk;
 }
@@ -33,7 +38,6 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
 PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     // Get chunk->type field as a strcmp-able char array
     char* type = pngChunkType(chunk);
-
     PNGINFOHEADER header;
 
     // Make sure chunk is actually a header type
@@ -66,7 +70,7 @@ BYTE pngVerifyChunk(PNGCHUNK chunk) {
 
     printf("Verifying chunk...\n");
     DWORD trueCRC = chunk.crc;
-    DWORD trueLength = reverseLong(chunk.length);
+    DWORD trueLength = pngTrueLength(chunk);
     const static int TYPESIZE = 4;
     BYTE *data = calloc(trueLength + TYPESIZE, sizeof(BYTE));
 
@@ -96,7 +100,10 @@ BYTE pngVerifyChunk(PNGCHUNK chunk) {
 }
 
 /**
- * Finds the type of a PNGCHUNK with and ending '\0' char
+ * Finds the type of a PNGCHUNK data type.
+ * 
+ * @param PNGCHUNK the PNGCHUNK to find the type of.
+ * @return char[5] type of the chunk with null terminator.
  */
 char* pngChunkType(PNGCHUNK chunk) {
     char* type = calloc(5, sizeof(char));
@@ -111,7 +118,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
     DWORD width = pi.width;
     DWORD height = pi.height;
-    long sizeOfChunks = (width * height) - (sizeof(pf) + sizeof(pi));
+    // long sizeOfChunks = (width * height) - (sizeof(pf) + sizeof(pi));
     PNGCHUNK (*chunks) = calloc(width * height, sizeof(PNGCHUNK));
 
     if (chunks == NULL) {
@@ -126,9 +133,9 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     int readingChunks = TRUE;
 
     while (readingChunks) {
-        printf("Reading chunk...\n");
+        // printf("Reading chunk...\n");
         PNGCHUNK chunk = pngReadChunk(inptr);
-        printf("Chunk read!\n");
+        // printf("Chunk read!\n");
         char* type = pngChunkType(chunk);
         
         if (!strcmp(type, "IEND")) {
@@ -136,12 +143,12 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
             printf("\nReached end chunk.\n");
         }
 
-        if (!pngVerifyChunk(chunk)) {
-            printf("BAD CHUNK.\n");
-            free(type);
-            free(chunks);
-            return -1;
-        }
+        // if (!pngVerifyChunk(chunk)) {
+            // printf("BAD CHUNK.\n");
+            // free(type);
+            // free(chunks);
+            // return -1;
+        // }
 
         chunks[numChunks++] = chunk;
         free(type);
@@ -157,8 +164,16 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     // Write rest of chunk data from array to outfile
     for (int i = 0; i < numChunks; i++) {
         PNGCHUNK* chunk = &chunks[i];
+        DWORD trueLength = pngTrueLength(*chunk);
 
-        fwrite(chunk, pngChunkSize(*chunk), 1, outptr);
+        // Write each chunk field to outfile
+        fwrite(&chunk->length, sizeof(DWORD), 1, outptr);
+        fwrite(&chunk->type, sizeof(char), 4, outptr);
+        if (trueLength != 0) {
+            fwrite(chunk->data, sizeof(BYTE), trueLength, outptr);
+        }
+        fwrite(&chunk->crc, sizeof(DWORD), 1, outptr);
+
     }
     printf("done!\n");
     

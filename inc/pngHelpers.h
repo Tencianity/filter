@@ -9,14 +9,18 @@
 #include "png.h"
 #include "CRC32.h"
 
-PNGCHUNK pngReadChunk(FILE* pngFile);
-PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk);
-BYTE pngVerifyChunk(PNGCHUNK chunk);
-char* pngChunkType(PNGCHUNK chunk);
-int filterPNG(PNGHEADER pf, PNGINFOHEADER pi, char filter, FILE* inptr, FILE* outptr);
+PNGCHUNK pngReadChunk(FILE*);
+PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK);
+BYTE pngVerifyChunk(PNGCHUNK);
+char* pngChunkType(PNGCHUNK);
+int filterPNG(PNGHEADER, PNGINFOHEADER, char, FILE*, FILE*);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {
     return (sizeof(chunk.length) + sizeof(chunk.type) + sizeof(chunk.crc)) + reverseLong(chunk.length);
+}
+
+static inline DWORD pngTrueLength(PNGCHUNK chunk) {
+    return reverseLong(chunk.length);
 }
 
 #endif
