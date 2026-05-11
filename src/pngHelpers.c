@@ -3,8 +3,6 @@
 PNGCHUNK pngReadChunk(FILE* pngFile) {
     DWORD length;
     char type[5];
-    BYTE* data;
-    DWORD crc;
     
     fread(&length, sizeof(DWORD), 1, pngFile);
     fread(&type, sizeof(char), 4, pngFile);
@@ -18,14 +16,12 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     memcpy(chunk.type, type, 4);
     
     if (trueLength != 0) {
-        data = calloc(trueLength, sizeof(BYTE));
+        chunk.data = calloc(trueLength, sizeof(BYTE));
         
-        fread(data, sizeof(BYTE), trueLength, pngFile);
-        chunk.data = data;
+        fread(chunk.data, sizeof(BYTE), trueLength, pngFile);
     } else chunk.data = NULL;
     
-    fread(&crc, sizeof(DWORD), 1, pngFile);
-    chunk.crc = crc;
+    fread(&chunk.crc, sizeof(DWORD), 1, pngFile);
     
     if (strcmp(pngChunkType(chunk), "IEND"))
         printf("%s, ", pngChunkType(chunk));
@@ -116,10 +112,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
                 char filter, FILE* inptr, FILE* outptr)
 {
 
-    DWORD width = pi.width;
-    DWORD height = pi.height;
-    // long sizeOfChunks = (width * height) - (sizeof(pf) + sizeof(pi));
-    PNGCHUNK (*chunks) = calloc(width * height, sizeof(PNGCHUNK));
+    // Allocate reasonable number of chunks (typical PNG has 10-30 chunks)
+    // Use 1000 as safe upper bound to avoid massive heap allocation
+    const int MAX_CHUNKS = 1000;
+    PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
 
     if (chunks == NULL) {
         printf("Not enough space to store png chunks.\n");
@@ -143,11 +139,19 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
             printf("\nReached end chunk.\n");
         }
 
+        // Check if we've exceeded max chunks
+        if (numChunks >= MAX_CHUNKS) {
+            printf("ERROR: Exceeded maximum chunk limit (%d).\n", MAX_CHUNKS);
+            free(type);
+            free(chunks);
+            return 24;
+        }
+
         // if (!pngVerifyChunk(chunk)) {
-            // printf("BAD CHUNK.\n");
-            // free(type);
-            // free(chunks);
-            // return -1;
+        //     printf("BAD CHUNK.\n");
+        //     free(type);
+        //     free(chunks);
+        //     return -1;
         // }
 
         chunks[numChunks++] = chunk;
@@ -155,24 +159,24 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     }
     printf("done!\n");
 
+    printf("Writing to outfile...\n");
+
     // Write File Header and Info Header to outfile
     fwrite(&pf, sizeof(pf), 1, outptr);
     fwrite(&pi, sizeof(pi), 1, outptr);
-
-    printf("Writing to outfile...\n");
     
     // Write rest of chunk data from array to outfile
     for (int i = 0; i < numChunks; i++) {
-        PNGCHUNK* chunk = &chunks[i];
-        DWORD trueLength = pngTrueLength(*chunk);
+        PNGCHUNK chunk = chunks[i];
+        DWORD trueLength = pngTrueLength(chunk);
 
         // Write each chunk field to outfile
-        fwrite(&chunk->length, sizeof(DWORD), 1, outptr);
-        fwrite(&chunk->type, sizeof(char), 4, outptr);
-        if (trueLength != 0) {
-            fwrite(chunk->data, sizeof(BYTE), trueLength, outptr);
+        fwrite(&chunk.length, sizeof(DWORD), 1, outptr);
+        fwrite(&chunk.type, sizeof(char), 4, outptr);
+        if (trueLength > 0) {
+            fwrite(chunk.data, sizeof(BYTE), trueLength, outptr);
         }
-        fwrite(&chunk->crc, sizeof(DWORD), 1, outptr);
+        fwrite(&chunk.crc, sizeof(DWORD), 1, outptr);
 
     }
     printf("done!\n");
