@@ -1,8 +1,16 @@
 #include "filter.h"
 
-int main(int argc, char* argv[])
-{
-    // Define allowable filters
+int main(int argc, char* argv[]) {
+    
+    /* Implemented filters:
+        -b: blur
+        -g: grayscale
+        -r: reflection
+        -s: sepia
+        -x: red shift
+        -y: green shift
+        -z: blue shift
+    */
     char* filters = "bgrsxyz";
 
     // Get filter flag and check validity

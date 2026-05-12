@@ -10,22 +10,19 @@ char* getFileType(char* file) {
     return "Unknown filetype.";
 }
 
+/**
+ * Reverse the byte order of a long.
+ * 
+ * @param DWORD The number who's byte order to reverse.
+ * @return The reversed DWORD.
+ */
 DWORD reverseLong(DWORD num) {
-    DWORD newNum = 0x0;
-    for (int i = 1; i <= sizeof(num); i++) {
-        int shiftRight = 8 * (sizeof(num) - i);
-        int shiftLeft = 8 * (i - 1);
-        newNum |= (num << shiftLeft) >> shiftRight;
-    }
-    return newNum;
+    return ((num & 0xff000000) >> 24) |
+           ((num & 0x00ff0000) >> 8) |
+           ((num & 0x0000ff00) << 8) |
+           ((num & 0x000000ff) << 24);
 }
 
 DWORD buildLong(BYTE bytes[4]) {
-    DWORD ret = 0x0;
-    for (int i = 0; i < sizeof(DWORD); i++) {
-        int shiftAmt = sizeof(DWORD) - i;
-        ret |= bytes[i];
-        ret <<= shiftAmt; 
-    }
-    return ret;
+    return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
 }

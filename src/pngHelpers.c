@@ -62,37 +62,46 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     return header;
 }
 
+/**
+ * Verify the integrity of a PNG chunk using
+ * CRC32 algorithm.
+ * 
+ * @param PNGCHUNK the chunk to verify.
+ * @return 1 for valid chunk, 0 otherwise.
+ */
 BYTE pngVerifyChunk(PNGCHUNK chunk) {
 
-    printf("Verifying chunk...\n");
     DWORD trueCRC = chunk.crc;
     DWORD trueLength = pngTrueLength(chunk);
-    const static int TYPESIZE = 4;
-    BYTE *data = calloc(trueLength + TYPESIZE, sizeof(BYTE));
+    static const int CHUNKTYPEBYTES = 4;
 
-    char *type = pngChunkType(chunk);
+    char type[5];
+    memcpy(type, chunk.type, 4);
+    type[4] = '\0';
+    
+    BYTE* data = calloc(trueLength + CHUNKTYPEBYTES, sizeof(BYTE));
 
     // set data[0:3] to bytes of the png type field
-    for (int i = 0; i < trueLength + TYPESIZE; i++) {
-        if (i < TYPESIZE) {
+    for (int i = 0; i < trueLength + CHUNKTYPEBYTES; i++) {
+        if (i < CHUNKTYPEBYTES) {
             data[i] = type[i];
         }
         else {
-            data[i] = chunk.data[i - TYPESIZE];
+            data[i] = chunk.data[i - CHUNKTYPEBYTES];
         }
     }
 
-    DWORD estimateCRC = CRC32(data, trueLength + TYPESIZE);
+    DWORD estimateCRC = CRC32(data, trueLength + CHUNKTYPEBYTES);
+    estimateCRC = reverseLong(estimateCRC);
     
+    free(data);
+
     if (trueCRC != estimateCRC) {
-        printf("Chunk CRC: %x\n", trueCRC);
-        printf("Estimate CRC: %x\n", estimateCRC);
+        printf("Chunk CRC: %08x\n", trueCRC);
+        printf("Estimate CRC: %08x\n", estimateCRC);
     }
 
-    free(type);
-    free(data);
-    printf("Chunk verified!\n");
-    return trueCRC == estimateCRC;
+    return estimateCRC == trueCRC;
 }
 
 /**
@@ -108,20 +117,35 @@ char* pngChunkType(PNGCHUNK chunk) {
     return type;
 }
 
+/**
+ * Prints the data stream of any given PNG chunk.
+ * 
+ * @param PNGCHUNK the chunk with data to print.
+ */
+void pngPrintChunk(PNGCHUNK chunk) {
+    DWORD trueLength = pngTrueLength(chunk);
+    BYTE* data = chunk.data;
+
+    printf("\nChunk type: %s\n", pngChunkType(chunk));
+    for (int i = 0; i < trueLength; i++) {
+        printf("%#01x ", data[i]);
+    }
+    printf("\n");
+}
+
 int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
                 char filter, FILE* inptr, FILE* outptr)
 {
 
     // Allocate reasonable number of chunks (typical PNG has 10-30 chunks)
     // Use 1000 as safe upper bound to avoid massive heap allocation
-    const int MAX_CHUNKS = 1000;
     PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
-
+    
     if (chunks == NULL) {
         printf("Not enough space to store png chunks.\n");
         return 23;
     }
-
+    
     printf("Reading chunks of png... \n");
     
     // Read all chunks of the png into an array of PNGCHUNK types
@@ -129,10 +153,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     int readingChunks = TRUE;
 
     while (readingChunks) {
-        // printf("Reading chunk...\n");
         PNGCHUNK chunk = pngReadChunk(inptr);
-        // printf("Chunk read!\n");
         char* type = pngChunkType(chunk);
+
+        // if (numChunks == 0) pngPrintChunk(chunk);
         
         if (!strcmp(type, "IEND")) {
             readingChunks = FALSE;
@@ -147,17 +171,18 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
             return 24;
         }
 
-        // if (!pngVerifyChunk(chunk)) {
-        //     printf("BAD CHUNK.\n");
-        //     free(type);
-        //     free(chunks);
-        //     return -1;
-        // }
+        // Verify chunk integrity
+        if (!pngVerifyChunk(chunk)) {
+            printf("BAD CHUNK.\n");
+            free(type);
+            free(chunks);
+            return -1;
+        }
 
         chunks[numChunks++] = chunk;
         free(type);
     }
-    printf("done!\n");
+    printf("Done with (%d) chunks read.\n", numChunks);
 
     printf("Writing to outfile...\n");
 
@@ -178,8 +203,12 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         }
         fwrite(&chunk.crc, sizeof(DWORD), 1, outptr);
 
+        // Print to console if any bad chunks get written to outfile
+        if (!pngVerifyChunk(chunk)) {
+            printf("Bad chunk written to outfile: Chunk-%d\n", i + 1);
+        }
     }
-    printf("done!\n");
+    printf("Done.\n");
     
     free(chunks);
     return 0;

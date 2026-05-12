@@ -17,8 +17,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
     
 
     // Ensure infile is (likely) an uncompressed BMP
-    if (bf.signature != 0x4d42 || bi.bitCount != 24)
-    {
+    if (bf.signature != 0x4d42 || bi.bitCount != 24) {
         fclose(outptr);
         fclose(inptr);
         
@@ -40,8 +39,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
 
     // Allocate memory for image
     RGB(*image)[width] = calloc(height, width * sizeof(RGB));
-    if (image == NULL)
-    {
+    if (image == NULL) {
         printf("Not enough memory to store image.\n");
         fclose(outptr);
         fclose(inptr);
@@ -54,8 +52,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
 
     printf("Reading input .bmp file...\n");
     // Iterate over infile's scanlines
-    for (int i = 0; i < height; i++)
-    {
+    for (int i = 0; i < height; i++) {
         // Read row into pixel array
         fread(image[i], sizeof(RGB), width, inptr);
 
@@ -67,8 +64,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
 
     printf("Filtering pixels of image...\n");
     // Filter image
-    switch (filter)
-    {
+    switch (filter) {
         // Blur
         case 'b':
             blur(height, width, image);

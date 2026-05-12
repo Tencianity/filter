@@ -3,6 +3,8 @@
 
 #include "helpers.h"
 
+#define MAX_CHUNKS 1000
+
 typedef struct {
     BYTE highBit; // 0x89
     char png[3]; // 50 5E 47 ("PNG")
