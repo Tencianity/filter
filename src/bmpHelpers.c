@@ -17,7 +17,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
     
 
     // Ensure infile is (likely) an uncompressed BMP
-    if (bf.signature != 0x4d42 || bi.bitCount != 24) {
+    if (bf.signature != 0x4d42 || bi.bitCount != 24 || bi.compression != 0) {
         fclose(outptr);
         fclose(inptr);
         
@@ -61,46 +61,45 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
     }
     printf("done reading.\n");
 
-
     printf("Filtering pixels of image...\n");
     // Filter image
     switch (filter) {
         // Blur
-        case 'b':
+        case BLUR:
             blur(height, width, image);
             break;
 
         // Grayscale
-        case 'g':
+        case GRAYSCALE:
             grayscale(height, width, image);
             break;
 
-        // Reflection
-        case 'r':
+        // Reflect
+        case REFLECT:
             reflect(height, width, image);
             break;
 
         // Sepia
-        case 's':
+        case SEPIA:
             sepia(height, width, image);
             break;
 
         // Red
-        case 'x':
+        case REDSHIFT:
             redShift(height, width, image);
             break;
 
         // Green
-        case 'y':
+        case GREENSHIFT:
             greenShift(height, width, image);
             break;
 
         // Blue
-        case 'z':
+        case BLUESHIFT:
             blueShift(height, width, image);
             break;
     }
-    printf("done filtering image pixels.\n");
+    printf("Done filtering image pixels.\n");
 
     // Write outfile's BITMAPFILEHEADER
     fwrite(&bf, sizeof(BITMAPFILEHEADER), 1, outptr);
@@ -121,7 +120,7 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
             fputc(0x00, outptr);
         }
     }
-    printf("doen writing to outfile.\n\n");
+    printf("Done writing to outfile.\n\n");
 
     printf("\n~~~~ BITMAPFILEHEADER ~~~~\n");
 

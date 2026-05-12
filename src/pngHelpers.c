@@ -1,4 +1,141 @@
+#include <stdio.h>
+#include <string.h>
+#include <stddef.h>
+#include <stdlib.h>
+
 #include "pngHelpers.h"
+#include "helpers.h"
+#include "CRC32.h"
+
+
+int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
+                char filter, FILE* inptr, FILE* outptr) {
+
+    // Allocate reasonable number of chunks (typical PNG has 10-30 chunks)
+    // Use 1000 as safe upper bound to avoid massive heap allocation
+    PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
+    
+    if (chunks == NULL) {
+        printf("Not enough space to store png chunks.\n");
+        return 23;
+    }
+    
+    printf("Reading chunks of png... \n");
+    
+    // Read all chunks of the png into an array of PNGCHUNK types
+    int numChunks = 0;
+    int readingChunks = TRUE;
+
+    while (readingChunks) {
+        PNGCHUNK chunk = pngReadChunk(inptr);
+        char* type = pngChunkType(chunk);
+
+        // if (numChunks == 0) pngPrintChunk(chunk);
+        
+        if (!strcmp(type, "IEND")) {
+            readingChunks = FALSE;
+            printf("\nReached end chunk.\n");
+        }
+
+        // Check if we've exceeded max chunks
+        if (numChunks >= MAX_CHUNKS) {
+            printf("ERROR: Exceeded maximum chunk limit (%d).\n", MAX_CHUNKS);
+            free(type);
+            free(chunks);
+            return 24;
+        }
+
+        // Verify chunk integrity
+        if (!pngVerifyChunk(chunk)) {
+            printf("BAD CHUNK.\n");
+            free(type);
+            free(chunks);
+            return -1;
+        }
+
+        chunks[numChunks++] = chunk;
+        free(type);
+    }
+
+    printf("Done with (%d) chunks read.\n", numChunks);
+    printf("Filtering pixels of image...\n");
+
+
+    for (int i = 0; i < numChunks; i++) {
+        PNGCHUNK chunk = chunks[i];
+        int size = pngTrueLength(chunk);
+        RGB (*image) = (RGB*) chunk.data;
+
+        // Only filter IDAT chunks
+        if (strcmp(pngChunkType(chunk), "IDAT")) continue;
+
+        switch (filter) {
+            // Blur
+            case BLUR:
+                pngBlur(size, image);
+                break;
+
+            // Grayscale
+            case GRAYSCALE:
+                pngGrayscale(size, image);
+                break;
+
+            // Reflect
+            case REFLECT:
+                pngReflect(size, image);
+                break;
+
+            // Sepia
+            case SEPIA:
+                pngSepia(size, image);
+                break;
+
+            // Red
+            case REDSHIFT:
+                pngRedShift(size, image);
+                break;
+
+            // Green
+            case GREENSHIFT:
+                pngGreenShift(size, image);
+                break;
+
+            // Blue
+            case BLUESHIFT:
+                pngBlueShift(size, image);
+                break;
+        }
+    }
+
+    printf("Writing to outfile...\n");
+
+    // Write File Header and Info Header to outfile
+    fwrite(&pf, sizeof(pf), 1, outptr);
+    fwrite(&pi, sizeof(pi), 1, outptr);
+    
+    // Write rest of chunk data from array to outfile
+    for (int i = 0; i < numChunks; i++) {
+        PNGCHUNK chunk = chunks[i];
+        DWORD trueLength = pngTrueLength(chunk);
+
+        // Write each chunk field to outfile
+        fwrite(&chunk.length, sizeof(DWORD), 1, outptr);
+        fwrite(&chunk.type, sizeof(char), 4, outptr);
+        if (trueLength > 0) {
+            fwrite(chunk.data, sizeof(BYTE), trueLength, outptr);
+        }
+        fwrite(&chunk.crc, sizeof(DWORD), 1, outptr);
+
+        // Print to console if any bad chunks get written to outfile
+        if (!pngVerifyChunk(chunk)) {
+            printf("Bad chunk written to outfile: Chunk-%d\n", i + 1);
+        }
+    }
+    printf("Done.\n");
+    
+    free(chunks);
+    return 0;
+}
 
 PNGCHUNK pngReadChunk(FILE* pngFile) {
     DWORD length;
@@ -133,83 +270,29 @@ void pngPrintChunk(PNGCHUNK chunk) {
     printf("\n");
 }
 
-int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
-                char filter, FILE* inptr, FILE* outptr)
-{
+void pngBlur(int, RGB*) {
+    return;
+}
 
-    // Allocate reasonable number of chunks (typical PNG has 10-30 chunks)
-    // Use 1000 as safe upper bound to avoid massive heap allocation
-    PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
-    
-    if (chunks == NULL) {
-        printf("Not enough space to store png chunks.\n");
-        return 23;
-    }
-    
-    printf("Reading chunks of png... \n");
-    
-    // Read all chunks of the png into an array of PNGCHUNK types
-    int numChunks = 0;
-    int readingChunks = TRUE;
+void pngGrayscale(int, RGB*) {
+    return;
+}
+void pngReflect(int, RGB*) {
+    return;
+}
 
-    while (readingChunks) {
-        PNGCHUNK chunk = pngReadChunk(inptr);
-        char* type = pngChunkType(chunk);
+void pngSepia(int, RGB*) {
+    return;
+}
 
-        // if (numChunks == 0) pngPrintChunk(chunk);
-        
-        if (!strcmp(type, "IEND")) {
-            readingChunks = FALSE;
-            printf("\nReached end chunk.\n");
-        }
+void pngRedShift(int, RGB*) {
+    return;
+}
 
-        // Check if we've exceeded max chunks
-        if (numChunks >= MAX_CHUNKS) {
-            printf("ERROR: Exceeded maximum chunk limit (%d).\n", MAX_CHUNKS);
-            free(type);
-            free(chunks);
-            return 24;
-        }
+void pngGreenShift(int, RGB*) {
+    return;
+}
 
-        // Verify chunk integrity
-        if (!pngVerifyChunk(chunk)) {
-            printf("BAD CHUNK.\n");
-            free(type);
-            free(chunks);
-            return -1;
-        }
-
-        chunks[numChunks++] = chunk;
-        free(type);
-    }
-    printf("Done with (%d) chunks read.\n", numChunks);
-
-    printf("Writing to outfile...\n");
-
-    // Write File Header and Info Header to outfile
-    fwrite(&pf, sizeof(pf), 1, outptr);
-    fwrite(&pi, sizeof(pi), 1, outptr);
-    
-    // Write rest of chunk data from array to outfile
-    for (int i = 0; i < numChunks; i++) {
-        PNGCHUNK chunk = chunks[i];
-        DWORD trueLength = pngTrueLength(chunk);
-
-        // Write each chunk field to outfile
-        fwrite(&chunk.length, sizeof(DWORD), 1, outptr);
-        fwrite(&chunk.type, sizeof(char), 4, outptr);
-        if (trueLength > 0) {
-            fwrite(chunk.data, sizeof(BYTE), trueLength, outptr);
-        }
-        fwrite(&chunk.crc, sizeof(DWORD), 1, outptr);
-
-        // Print to console if any bad chunks get written to outfile
-        if (!pngVerifyChunk(chunk)) {
-            printf("Bad chunk written to outfile: Chunk-%d\n", i + 1);
-        }
-    }
-    printf("Done.\n");
-    
-    free(chunks);
-    return 0;
+void pngBlueShift(int, RGB*) {
+    return;
 }

@@ -3,37 +3,51 @@
 int main(int argc, char* argv[]) {
     
     /* Implemented filters:
-        -b: blur
-        -g: grayscale
-        -r: reflection
-        -s: sepia
-        -x: red shift
-        -y: green shift
-        -z: blue shift
+        --blur: blur
+        --grayscale: grayscale
+        --reflection: reflection
+        --sepia: sepia
+        --redshift: red shift
+        --greenshift: green shift
+        --blueshift: blue shift
     */
-    char* filters = "bgrsxyz";
 
-    // Get filter flag and check validity
-    char filter = getopt(argc, argv, filters);
-    if (filter == '?')
-    {
-        printf("Invalid filter.\n");
+    char* filters = "bgrsRGBh";
+    char filter;
+
+    // Get filter flag and check it is a valid option
+    int option_index = 0;
+    if ((filter = getopt_long(argc, argv, filters, long_options, &option_index)) == -1) {
+        printf("Unknown option. Use --help for usage information.\n");
         return 1;
     }
 
     // Ensure only one filter
-    if (getopt(argc, argv, filters) != -1)
-    {
+    if (getopt_long(argc, argv, filters, long_options, NULL) != -1) {
         printf("Only one filter allowed.\n");
         return 2;
     }
 
+    // Display help message
+    if (filter == HELP) {   
+        printf("Usage: ./filter [OPTIONS] infile outfile\n\n");
+        printf("OPTIONS:\n"
+               "  --blur          Blurs the image.\n"
+               "  --grayscale     Converts the image to grayscale.\n"
+               "  --reflect       Reflects the image horizontally.\n"
+               "  --sepia         Applies a sepia filter to the image.\n"
+               "  --redshift      Increases the red values of the image.\n"
+               "  --greenshift    Increases the green values of the image.\n"
+               "  --blueshift     Increases the blue values of the image.\n");
+        return 0;
+    }
+
     // Ensure proper usage
-    if (argc != optind + 2)
-    {
-        printf("Usage: ./filter [flag (-x -y -z -g -s -r -b)] infile outfile\n");
+    if (argc != optind + 2) {
+        printf("Usage: ./filter [flag (--blueshift --grayscale --help)] infile outfile\n");
         return 3;
     }
+
 
     // Remember filenames
     char* infile = argv[optind];
@@ -42,8 +56,7 @@ int main(int argc, char* argv[]) {
     // Open input file
     FILE* inptr = fopen(infile, "rb");
 
-    if (inptr == NULL)
-    {
+    if (inptr == NULL) {
         printf("Could not open %s.\n", infile);
         return 4;
     }
@@ -51,8 +64,7 @@ int main(int argc, char* argv[]) {
     // Open output file
     FILE* outptr = fopen(outfile, "wb");
 
-    if (outptr == NULL)
-    {
+    if (outptr == NULL) {
         fclose(inptr);
         printf("Could not create %s.\n", outfile);
         return 5;
@@ -85,38 +97,24 @@ int main(int argc, char* argv[]) {
 
         // Make sure program reads the correct amount of bytes
         // for the info header type.
-        switch (headerSize)
-        {
+        switch (headerSize) {
             case 64:
-                printHeaderError(infoheader);
-                fclose(inptr);
-                fclose(outptr);
-                return 7;
             case 16:
-                printHeaderError(infoheader);
-                fclose(inptr);
-                fclose(outptr);
-                return 7;
             case 56:
-                printHeaderError(infoheader);
-                fclose(inptr);
-                fclose(outptr);
-                return 7;
             case 108:
                 printHeaderError(infoheader);
                 fclose(inptr);
                 fclose(outptr);
-                return 7;
+                return 8;
             default:
                 break;
         }
 
-        if (infoheader == NULL)
-        {
+        if (infoheader == NULL) {
             printHeaderError(infoheader);
             fclose(inptr);
             fclose(outptr);
-            return 7;
+            return 9;
         }
 
         BITMAPV5INFOHEADER bi;

@@ -10,6 +10,18 @@ char* getFileType(char* file) {
     return "Unknown filetype.";
 }
 
+BYTE getFilterNum(char* filter) {
+    if (!strcmp(filter, "grayscale") || !strcmp(filter, "--grayscale")) return 'g';
+    if (!strcmp(filter, "sepia") || !strcmp(filter, "--sepia")) return 's';
+    if (!strcmp(filter, "reflect") || !strcmp(filter, "--reflect")) return 'r';
+    if (!strcmp(filter, "blur") || !strcmp(filter, "--blur")) return 'b';
+    if (!strcmp(filter, "redshift") || !strcmp(filter, "--redshift")) return 'R';
+    if (!strcmp(filter, "greenshift") || !strcmp(filter, "--greenshift")) return 'G';
+    if (!strcmp(filter, "blueshift") || !strcmp(filter, "--blueshift")) return 'B';
+
+    return 0;
+}
+
 /**
  * Reverse the byte order of a long.
  * 

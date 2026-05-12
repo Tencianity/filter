@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <getopt.h>
 
 // Define int-type structs as identifiable names
 typedef uint8_t BYTE;
@@ -12,6 +13,15 @@ typedef uint16_t WORD;
 
 #define TRUE 1
 #define FALSE 0
+
+#define HELP 'h'
+#define BLUR 'b'
+#define GRAYSCALE 'g'
+#define REFLECT 'r'
+#define SEPIA 's'
+#define REDSHIFT 'R'
+#define GREENSHIFT 'G'
+#define BLUESHIFT 'B'
 
 typedef struct {
     LONG x;
@@ -35,6 +45,19 @@ typedef struct {
     BYTE r;
 } __attribute__((__packed__))
 RGB;
+
+static struct option long_options[] = {
+    // --blur, --grayscale, --etc...
+    {"blur", no_argument,           0, 'b'},
+    {"grayscale", no_argument,      0, 'g'},
+    {"reflect", no_argument,        0, 'r'},
+    {"sepia", no_argument,          0, 's'},
+    {"redshift", no_argument,       0, 'R'},
+    {"greenshift", no_argument,     0, 'G'},
+    {"blueshift", no_argument,      0, 'B'},
+    {"help", no_argument,           0, 'h'},
+    {0, 0, 0, 0}
+};
 
 char* getFileType(char* file);
 DWORD reverseLong(DWORD num);
