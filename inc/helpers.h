@@ -46,6 +46,14 @@ typedef struct {
 } __attribute__((__packed__))
 RGB;
 
+typedef struct {
+    BYTE r;
+    BYTE g;
+    BYTE b;
+    BYTE a;
+} __attribute__((__packed__))
+RGBA;
+
 static struct option long_options[] = {
     // --blur, --grayscale, --etc...
     {"blur", no_argument,           0, 'b'},

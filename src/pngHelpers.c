@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "pngHelpers.h"
 #include "helpers.h"
@@ -11,7 +12,7 @@
 int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
                 char filter, FILE* inptr, FILE* outptr) {
 
-    // Allocate reasonable number of chunks (typical PNG has 10-30 chunks)
+    // Allocate reasonable number of chunks
     // Use 1000 as safe upper bound to avoid massive heap allocation
     PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
     
@@ -64,7 +65,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     for (int i = 0; i < numChunks; i++) {
         PNGCHUNK chunk = chunks[i];
         int size = pngTrueLength(chunk);
-        RGB (*image) = (RGB*) chunk.data;
+        RGBA* image = (RGBA*) chunk.data;
 
         // Only filter IDAT chunks
         if (strcmp(pngChunkType(chunk), "IDAT")) continue;
@@ -105,6 +106,8 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
                 pngBlueShift(size, image);
                 break;
         }
+        DWORD crc = reverseLong(pngCalculateCRC(chunk));
+        memcpy(&chunks[i].crc, &crc, sizeof(DWORD));
     }
 
     printf("Writing to outfile...\n");
@@ -159,11 +162,13 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     } else chunk.data = NULL;
     
     fread(&chunk.crc, sizeof(DWORD), 1, pngFile);
-    
+
+/*
     if (strcmp(pngChunkType(chunk), "IEND"))
         printf("%s, ", pngChunkType(chunk));
     else
         printf("%s\n", pngChunkType(chunk));
+*/
     
     return chunk;
 }
@@ -199,16 +204,8 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     return header;
 }
 
-/**
- * Verify the integrity of a PNG chunk using
- * CRC32 algorithm.
- * 
- * @param PNGCHUNK the chunk to verify.
- * @return 1 for valid chunk, 0 otherwise.
- */
-BYTE pngVerifyChunk(PNGCHUNK chunk) {
+DWORD pngCalculateCRC(PNGCHUNK chunk) {
 
-    DWORD trueCRC = chunk.crc;
     DWORD trueLength = pngTrueLength(chunk);
     static const int CHUNKTYPEBYTES = 4;
 
@@ -229,9 +226,21 @@ BYTE pngVerifyChunk(PNGCHUNK chunk) {
     }
 
     DWORD estimateCRC = CRC32(data, trueLength + CHUNKTYPEBYTES);
-    estimateCRC = reverseLong(estimateCRC);
-    
     free(data);
+    return estimateCRC;
+}
+
+/**
+ * Verify the integrity of a PNG chunk using
+ * CRC32 algorithm.
+ * 
+ * @param PNGCHUNK the chunk to verify.
+ * @return 1 for valid chunk, 0 otherwise.
+ */
+BYTE pngVerifyChunk(PNGCHUNK chunk) {
+
+    DWORD trueCRC = chunk.crc;
+    DWORD estimateCRC = reverseLong(pngCalculateCRC(chunk));
 
     if (trueCRC != estimateCRC) {
         printf("Chunk CRC: %08x\n", trueCRC);
@@ -270,29 +279,39 @@ void pngPrintChunk(PNGCHUNK chunk) {
     printf("\n");
 }
 
-void pngBlur(int, RGB*) {
-    return;
+RGBA* pngBlur(int size, RGBA* image) {
+    return image;
 }
 
-void pngGrayscale(int, RGB*) {
-    return;
-}
-void pngReflect(int, RGB*) {
-    return;
+RGBA* pngGrayscale(int size, RGBA* image) {
+
+    for (int i = 0; i < size; i++) {
+        if (image[i].a == 0) continue;
+        BYTE average = round((image[i].r + image[i].g + image[i].b) / 3);
+
+        image[i].r = average;
+        image[i].g = average;
+        image[i].b = average;
+    }
+    return image;
 }
 
-void pngSepia(int, RGB*) {
-    return;
+RGBA* pngReflect(int size, RGBA* image) {
+    return image;
 }
 
-void pngRedShift(int, RGB*) {
-    return;
+RGBA* pngSepia(int size, RGBA* image) {
+    return image;
 }
 
-void pngGreenShift(int, RGB*) {
-    return;
+RGBA* pngRedShift(int size, RGBA* image) {
+    return image;
 }
 
-void pngBlueShift(int, RGB*) {
-    return;
+RGBA* pngGreenShift(int size, RGBA* image) {
+    return image;
+}
+
+RGBA* pngBlueShift(int size, RGBA* image) {
+    return image;
 }
