@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <math.h>
+#include <zlib.h>
 
 #include "pngHelpers.h"
 #include "helpers.h"
@@ -25,9 +26,12 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     
     // Read all chunks of the png into an array of PNGCHUNK types
     int numChunks = 0;
+    size_t numIdats = 0;
+    size_t dataSize = 0;
     int readingChunks = TRUE;
 
     while (readingChunks) {
+
         PNGCHUNK chunk = pngReadChunk(inptr);
         char* type = pngChunkType(chunk);
 
@@ -36,6 +40,11 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         if (!strcmp(type, "IEND")) {
             readingChunks = FALSE;
             printf("\nReached end chunk.\n");
+        }
+
+        if (!strcmp(type, "IDAT")) {
+            dataSize += pngTrueLength(chunk);
+            numIdats++;
         }
 
         // Check if we've exceeded max chunks
@@ -61,53 +70,67 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     printf("Done with (%d) chunks read.\n", numChunks);
     printf("Filtering pixels of image...\n");
 
+    // Define important image reading variables
+    BYTE filterType = pi.filter;
+    BYTE colorType = pi.colorType;
+    BYTE bitDepth = pi.bitDepth;
 
+    // Concatenate all IDAT data fields into a byte stream
+    BYTE* idatStream = calloc(dataSize, sizeof(BYTE));
+    int index = 0;
     for (int i = 0; i < numChunks; i++) {
+        
         PNGCHUNK chunk = chunks[i];
-        int size = pngTrueLength(chunk);
-        RGBA* image = (RGBA*) chunk.data;
-
-        // Only filter IDAT chunks
-        if (strcmp(pngChunkType(chunk), "IDAT")) continue;
-
-        switch (filter) {
-            // Blur
-            case BLUR:
-                pngBlur(size, image);
-                break;
-
-            // Grayscale
-            case GRAYSCALE:
-                pngGrayscale(size, image);
-                break;
-
-            // Reflect
-            case REFLECT:
-                pngReflect(size, image);
-                break;
-
-            // Sepia
-            case SEPIA:
-                pngSepia(size, image);
-                break;
-
-            // Red
-            case REDSHIFT:
-                pngRedShift(size, image);
-                break;
-
-            // Green
-            case GREENSHIFT:
-                pngGreenShift(size, image);
-                break;
-
-            // Blue
-            case BLUESHIFT:
-                pngBlueShift(size, image);
-                break;
+        
+        if (!strcmp(pngChunkType(chunk), "IDAT")) {
+            DWORD trueLength = pngTrueLength(chunk);
+            memcpy(idatStream + index, chunk.data, trueLength);
+            index += trueLength;
         }
-        DWORD crc = reverseLong(pngCalculateCRC(chunk));
-        memcpy(&chunks[i].crc, &crc, sizeof(DWORD));
+    }
+
+    // Something is wrong if expected data amount not read
+    if (index != dataSize) {
+        printf("ERROR: IDAT data size mismatch.\n");
+    }
+
+    RGBA* image = pngPullPixels(idatStream, dataSize, colorType, bitDepth);
+
+    switch (filter) {
+        // Blur
+        case BLUR:
+            pngBlur(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Grayscale
+        case GRAYSCALE:
+            pngGrayscale(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Reflect
+        case REFLECT:
+            pngReflect(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Sepia
+        case SEPIA:
+            pngSepia(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Red
+        case REDSHIFT:
+            pngRedShift(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Green
+        case GREENSHIFT:
+            pngGreenShift(image, dataSize, filterType, colorType, bitDepth);
+            break;
+
+        // Blue
+        case BLUESHIFT:
+            pngBlueShift(image, dataSize, filterType, colorType, bitDepth);
+            break;
     }
 
     printf("Writing to outfile...\n");
@@ -118,6 +141,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     
     // Write rest of chunk data from array to outfile
     for (int i = 0; i < numChunks; i++) {
+        
         PNGCHUNK chunk = chunks[i];
         DWORD trueLength = pngTrueLength(chunk);
 
@@ -141,6 +165,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 }
 
 PNGCHUNK pngReadChunk(FILE* pngFile) {
+    
     DWORD length;
     char type[5];
     
@@ -174,6 +199,7 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
 }
 
 PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
+    
     // Get chunk->type field as a strcmp-able char array
     char* type = pngChunkType(chunk);
     PNGINFOHEADER header;
@@ -191,7 +217,7 @@ PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     header.length = chunk.length;
     memcpy(header.type, chunk.type, 4);
 
-    int trueLength = reverseLong(header.length);
+    int trueLength = pngTrueLength(chunk);
     BYTE* data = chunk.data;
     BYTE* headerData = (BYTE*) &(header.width);
 
@@ -240,7 +266,8 @@ DWORD pngCalculateCRC(PNGCHUNK chunk) {
 BYTE pngVerifyChunk(PNGCHUNK chunk) {
 
     DWORD trueCRC = chunk.crc;
-    DWORD estimateCRC = reverseLong(pngCalculateCRC(chunk));
+    DWORD estimateCRC = is_little_endian() ? 
+        reverseLong(pngCalculateCRC(chunk)) : pngCalculateCRC(chunk);
 
     if (trueCRC != estimateCRC) {
         printf("Chunk CRC: %08x\n", trueCRC);
@@ -257,6 +284,7 @@ BYTE pngVerifyChunk(PNGCHUNK chunk) {
  * @return char[5] type of the chunk with null terminator.
  */
 char* pngChunkType(PNGCHUNK chunk) {
+    
     char* type = calloc(5, sizeof(char));
     memcpy(type, chunk.type, 4);
     type[4] = '\0';
@@ -269,6 +297,7 @@ char* pngChunkType(PNGCHUNK chunk) {
  * @param PNGCHUNK the chunk with data to print.
  */
 void pngPrintChunk(PNGCHUNK chunk) {
+    
     DWORD trueLength = pngTrueLength(chunk);
     BYTE* data = chunk.data;
 
@@ -279,13 +308,36 @@ void pngPrintChunk(PNGCHUNK chunk) {
     printf("\n");
 }
 
-RGBA* pngBlur(int size, RGBA* image) {
+RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, BYTE colorType, BYTE bitDepth) {
+    
+    // Theoretical max compression of data with zlib is 1:1032 bytes
+    const static int MAXCOMPRESSION = 1032;
+    RGBA* image = calloc(dataSize * MAXCOMPRESSION, sizeof(RGBA));
+
+    // Use zlib to deflate compressed data into RGBA array
+    z_stream stream;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+    stream.opaque = Z_NULL;
+
+    stream.avail_in = dataSize;
+    stream.next_in = idatStream;
+    stream.next_out = (BYTE*) image;
+
+    inflateInit(&stream);
+    inflate(&stream, Z_NO_FLUSH);
+    inflateEnd(&stream);
+    
     return image;
 }
 
-RGBA* pngGrayscale(int size, RGBA* image) {
+RGBA* pngBlur(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+    return image;
+}
 
-    for (int i = 0; i < size; i++) {
+RGBA* pngGrayscale(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+
+    for (int i = 0; i < dataSize / 4; i++) {
         if (image[i].a == 0) continue;
         BYTE average = round((image[i].r + image[i].g + image[i].b) / 3);
 
@@ -296,22 +348,22 @@ RGBA* pngGrayscale(int size, RGBA* image) {
     return image;
 }
 
-RGBA* pngReflect(int size, RGBA* image) {
+RGBA* pngReflect(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
     return image;
 }
 
-RGBA* pngSepia(int size, RGBA* image) {
+RGBA* pngSepia(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
     return image;
 }
 
-RGBA* pngRedShift(int size, RGBA* image) {
+RGBA* pngRedShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
     return image;
 }
 
-RGBA* pngGreenShift(int size, RGBA* image) {
+RGBA* pngGreenShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
     return image;
 }
 
-RGBA* pngBlueShift(int size, RGBA* image) {
+RGBA* pngBlueShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
     return image;
 }

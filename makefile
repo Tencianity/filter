@@ -7,7 +7,7 @@ INCS = $(wildcard $(INC_DIR)/*.h)
 
 EXEC = filter
 
-CFLAGS = -g -I $(INC_DIR) -std=c23 -Wall -lm
+CFLAGS = -g -I $(INC_DIR) -std=c23 -Wall -lm -lz
 
 $(EXEC): $(SRCS) $(INCS)
 	$(CC) $(CFLAGS) $(SRCS) -o filter

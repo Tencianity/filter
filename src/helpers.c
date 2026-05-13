@@ -38,3 +38,13 @@ DWORD reverseLong(DWORD num) {
 DWORD buildLong(BYTE bytes[4]) {
     return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
 }
+
+/**
+ * Check if system is little or big endian.
+ * 
+ * @return 1 if little endian, 0 if big endian.
+ */
+int is_little_endian() {
+    uint16_t num = 0x1;
+    return (*(uint8_t *)&num == 0x1); // 1 = little-endian, 0 = big-endian
+}

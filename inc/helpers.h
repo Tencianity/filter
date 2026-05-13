@@ -56,6 +56,12 @@ RGBA;
 
 static struct option long_options[] = {
     // --blur, --grayscale, --etc...
+    /* 
+        {   filter_name reference by cli ("--blur"),
+            no_argument/required_argument ("--blur=3"),
+            flag,
+            filter_name saved into getopt_long "b" or cli "-b" } 
+    */
     {"blur", no_argument,           0, 'b'},
     {"grayscale", no_argument,      0, 'g'},
     {"reflect", no_argument,        0, 'r'},
@@ -70,5 +76,6 @@ static struct option long_options[] = {
 char* getFileType(char* file);
 DWORD reverseLong(DWORD num);
 DWORD buildLong(BYTE bytes[4]);
+int is_little_endian();
 
 #endif
