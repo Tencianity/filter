@@ -129,10 +129,6 @@ int filterBMP(BITMAPFILEHEADER bf, BITMAPV5INFOHEADER bi,
 
     // Free memory for image
     free(image);
-
-    // Close files
-    fclose(inptr);
-    fclose(outptr);
     return 0;
 }
 
