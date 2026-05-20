@@ -76,94 +76,122 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     BYTE bitDepth = pi.bitDepth;
 
     // Concatenate all IDAT data fields into a byte stream
+    printf("Allocating memory for IDAT data stream...\n");
     BYTE* idatStream = calloc(dataSize, sizeof(BYTE));
+
+    if (idatStream == NULL) {
+        printf("Not enough space to store data stream.\n");
+        free(chunks);
+        return 25;
+    }
+    printf("IDAT data holder memory allocated.\n");
+
+    printf("Reading data fields only from IDAT chunks...\n");
     int index = 0;
     for (int i = 0; i < numChunks; i++) {
         
         PNGCHUNK chunk = chunks[i];
         
-        if (!strcmp(pngChunkType(chunk), "IDAT")) {
+        char* type = pngChunkType(chunk);
+        if (!strcmp(type, "IDAT")) {
             DWORD trueLength = pngTrueLength(chunk);
             memcpy(idatStream + index, chunk.data, trueLength);
             index += trueLength;
         }
+        free(type);
     }
+    printf("Done reading IDAT data fields.\n");
 
     // Something is wrong if expected data amount not read
     if (index != dataSize) {
         printf("ERROR: IDAT data size mismatch.\n");
     }
 
-    RGBA* image = pngPullPixels(idatStream, dataSize, colorType, bitDepth);
+    printf("Uncompressing data stream for image filtering...\n");
+
+    long uncompressedSize = (pi.width * pngBytesPerPixel(colorType, bitDepth) + 1) * pi.height;
+
+    RGBA* image = pngPullPixels(idatStream, dataSize,
+         pi.width, pi.height, colorType, bitDepth, uncompressedSize);
+         
+    printf("Done uncompressing data stream.\n");
+    printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
 
     switch (filter) {
         // Blur
         case BLUR:
-            pngBlur(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying blur filter...\n");
+            pngBlur(image, uncompressedSize);
             break;
 
         // Grayscale
         case GRAYSCALE:
-            pngGrayscale(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying grayscale filter...\n");
+            pngGrayscale(image, uncompressedSize);
+            printf("Done applying grayscale filter.\n");
             break;
 
         // Reflect
         case REFLECT:
-            pngReflect(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying reflect filter...\n");
+            pngReflect(image, uncompressedSize);
             break;
 
         // Sepia
         case SEPIA:
-            pngSepia(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying sepia filter...\n");
+            pngSepia(image, uncompressedSize);
             break;
 
         // Red
         case REDSHIFT:
-            pngRedShift(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying red shift filter...\n");
+            pngRedShift(image, uncompressedSize);
             break;
 
         // Green
         case GREENSHIFT:
-            pngGreenShift(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying green shift filter...\n");
+            pngGreenShift(image, uncompressedSize);
             break;
 
         // Blue
         case BLUESHIFT:
-            pngBlueShift(image, dataSize, filterType, colorType, bitDepth);
+            printf("Applying blue shift filter...\n");
+            pngBlueShift(image, uncompressedSize);
+            break;
+            
+        default:
+            printf("Attempted to apply unknown filter type.\n");
             break;
     }
 
+
     printf("Writing to outfile...\n");
 
-    // Write File Header and Info Header to outfile
-    fwrite(&pf, sizeof(pf), 1, outptr);
-    fwrite(&pi, sizeof(pi), 1, outptr);
+    BYTE* imageOut = pngPushPixels(image, uncompressedSize, colorType, bitDepth, filterType);
+
+    // Write new png to outfile
+    pngEncode(pf, pi, filter, imageOut, chunks, numChunks, dataSize, outptr);
     
-    // Write rest of chunk data from array to outfile
-    for (int i = 0; i < numChunks; i++) {
-        
-        PNGCHUNK chunk = chunks[i];
-        DWORD trueLength = pngTrueLength(chunk);
-
-        // Write each chunk field to outfile
-        fwrite(&chunk.length, sizeof(DWORD), 1, outptr);
-        fwrite(&chunk.type, sizeof(char), 4, outptr);
-        if (trueLength > 0) {
-            fwrite(chunk.data, sizeof(BYTE), trueLength, outptr);
-        }
-        fwrite(&chunk.crc, sizeof(DWORD), 1, outptr);
-
-        // Print to console if any bad chunks get written to outfile
-        if (!pngVerifyChunk(chunk)) {
-            printf("Bad chunk written to outfile: Chunk-%d\n", i + 1);
-        }
-    }
     printf("Done.\n");
     
     free(chunks);
+    free(image);
+    free(idatStream);
+    free(imageOut);
     return 0;
 }
 
+/* Begin support functions used in filterPNG(). */
+
+
+/**
+ * Reads a PNG chunk into a custom data type PNGCHUNK.
+ * 
+ * @param FILE* the file pointer to read the chunk from.
+ * @return PNGCHUNK the chunk read from the file.
+ */
 PNGCHUNK pngReadChunk(FILE* pngFile) {
     
     DWORD length;
@@ -187,17 +215,17 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     } else chunk.data = NULL;
     
     fread(&chunk.crc, sizeof(DWORD), 1, pngFile);
-
-/*
-    if (strcmp(pngChunkType(chunk), "IEND"))
-        printf("%s, ", pngChunkType(chunk));
-    else
-        printf("%s\n", pngChunkType(chunk));
-*/
     
     return chunk;
 }
 
+/**
+ * Converts a PNGCHUNK type into a PNGINFOHEADER type
+ * if it is an IHDR chunk.
+ * 
+ * @param PNGCHUNK The chunk to convert.
+ * @return PNGINFOHEADER version of the chunk.
+ */
 PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK chunk) {
     
     // Get chunk->type field as a strcmp-able char array
@@ -235,9 +263,9 @@ DWORD pngCalculateCRC(PNGCHUNK chunk) {
     DWORD trueLength = pngTrueLength(chunk);
     static const int CHUNKTYPEBYTES = 4;
 
-    char type[5];
-    memcpy(type, chunk.type, 4);
-    type[4] = '\0';
+    char type[CHUNKTYPEBYTES + 1];
+    memcpy(type, chunk.type, CHUNKTYPEBYTES);
+    type[CHUNKTYPEBYTES] = '\0';
     
     BYTE* data = calloc(trueLength + CHUNKTYPEBYTES, sizeof(BYTE));
 
@@ -291,6 +319,32 @@ char* pngChunkType(PNGCHUNK chunk) {
     return type;
 }
 
+int pngBytesPerPixel(BYTE colorType, BYTE bitDepth) {
+
+    int bytesPerPixel;
+    switch (colorType) {
+        case 0:  // Grayscale
+            bytesPerPixel = (bitDepth < 8) ? 1 : bitDepth / 8;
+            break;
+        case 2:  // RGB
+            bytesPerPixel = (bitDepth / 8) * 3;
+            break;
+        case 3:  // Indexed (palette)
+            bytesPerPixel = 1;
+            break;
+        case 4:  // Grayscale + Alpha
+            bytesPerPixel = (bitDepth / 8) * 2;
+            break;
+        case 6:  // RGBA
+            bytesPerPixel = (bitDepth / 8) * 4;
+            break;
+        default:
+            printf("Unknown color type: %d\n", colorType);
+            return 0;
+    }
+    return bytesPerPixel;
+}
+
 /**
  * Prints the data stream of any given PNG chunk.
  * 
@@ -301,20 +355,33 @@ void pngPrintChunk(PNGCHUNK chunk) {
     DWORD trueLength = pngTrueLength(chunk);
     BYTE* data = chunk.data;
 
-    printf("\nChunk type: %s\n", pngChunkType(chunk));
+    char* type = pngChunkType(chunk);
+    printf("\nChunk type: %s\n", type);
+    free(type);
+
     for (int i = 0; i < trueLength; i++) {
         printf("%#01x ", data[i]);
     }
     printf("\n");
 }
 
-RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, BYTE colorType, BYTE bitDepth) {
-    
-    // Theoretical max compression of data with zlib is 1:1032 bytes
-    const static int MAXCOMPRESSION = 1032;
-    RGBA* image = calloc(dataSize * MAXCOMPRESSION, sizeof(RGBA));
+RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, 
+                     DWORD width, DWORD height,
+                     BYTE colorType, BYTE bitDepth, long uncompressedSize) {
 
-    // Use zlib to deflate compressed data into RGBA array
+    
+    printf("\n\nBytes per pixel: %d\n", pngBytesPerPixel(colorType, bitDepth));
+    printf("Calculated uncompressed size: %ld bytes\n", uncompressedSize);
+    printf("Number of total pixels: %ld\n", (uncompressedSize / pngBytesPerPixel(colorType, bitDepth)));
+
+    RGBA* image = calloc(uncompressedSize, sizeof(BYTE));
+
+    if (image == NULL) {
+        printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
+        return NULL;
+    }
+    
+    // Use zlib to inflate compressed data into buffer
     z_stream stream;
     stream.zalloc = Z_NULL;
     stream.zfree = Z_NULL;
@@ -322,22 +389,108 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, BYTE colorType, BYTE bitD
 
     stream.avail_in = dataSize;
     stream.next_in = idatStream;
+    stream.avail_out = uncompressedSize;
     stream.next_out = (BYTE*) image;
 
     inflateInit(&stream);
-    inflate(&stream, Z_NO_FLUSH);
+    int ret = inflate(&stream, Z_FINISH);
     inflateEnd(&stream);
+    
+    if (ret != Z_STREAM_END) {
+        printf("Inflate failed with code: %d\n", ret);
+        free(image);
+        return NULL;
+    }
     
     return image;
 }
 
-RGBA* pngBlur(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+BYTE* pngPushPixels(RGBA* image, long dataSize,
+                    BYTE colorType, BYTE bitDepth, 
+                    BYTE filterType) {
+
+    BYTE* compressedData = calloc(dataSize, sizeof(BYTE));
+    
+    if (compressedData == NULL) {
+        printf("Not enough space to store compressed data.\n");
+        return NULL;
+    }
+
+    // Use zlib to deflate uncompressed data into compressed
+    z_stream stream;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+    stream.opaque = Z_NULL;
+    stream.avail_in = dataSize;
+    stream.next_in = (BYTE*) image;
+    stream.avail_out = dataSize;
+    stream.next_out = compressedData;
+    deflateInit(&stream, Z_BEST_COMPRESSION);
+    int ret = deflate(&stream, Z_FINISH);
+    deflateEnd(&stream);
+
+    if (ret != Z_STREAM_END) {
+        printf("Deflate failed with code: %d\n", ret);
+        free(compressedData);
+        return NULL;
+    }
+    
+    return compressedData;
+}
+
+void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter, 
+                BYTE* image, PNGCHUNK* chunks, size_t numChunks,
+                long dataSize, FILE* outfile) {
+
+    fwrite(&pf, sizeof(pf), 1, outfile);
+    fwrite(&pi, sizeof(pi), 1, outfile);
+
+    int imageIndex = 0;
+    
+    for (int i = 0; i < numChunks; i++) {
+
+        char* type = pngChunkType(chunks[i]);
+        if (strcmp(type, "IDAT")) {
+            // Write non IDAT chunks without alteration
+            fwrite(&chunks[i].length, sizeof(DWORD), 1, outfile);
+            fwrite(&chunks[i].type, sizeof(char), 4, outfile);
+            fwrite(chunks[i].data, sizeof(BYTE), pngTrueLength(chunks[i]), outfile);
+            fwrite(&chunks[i].crc, sizeof(DWORD), 1, outfile);
+        }
+
+        else if (!strcmp(type, "IDAT")) {
+            // Keep length and type the same.
+            // Write new compressed data and CRC32.
+            int trueLength = pngTrueLength(chunks[i]);
+            memcpy(chunks[i].data, image + imageIndex, trueLength);
+
+            chunks[i].crc = is_little_endian() ?
+                reverseLong(pngCalculateCRC(chunks[i])) : pngCalculateCRC(chunks[i]);
+
+
+            // Write recalculated data to outfile
+            fwrite(&chunks[i].length, sizeof(DWORD), 1, outfile);
+            fwrite(&chunks[i].type, sizeof(char), 4, outfile);
+            fwrite(chunks[i].data, sizeof(BYTE), trueLength, outfile);
+            fwrite(&chunks[i].crc, sizeof(DWORD), 1, outfile);
+            imageIndex += trueLength;
+        }
+        free(type);
+
+    }
+
+}
+
+RGBA* pngBlur(RGBA* image, long dataSize) {
     return image;
 }
 
-RGBA* pngGrayscale(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngGrayscale(RGBA* image, long dataSize) {
 
-    for (int i = 0; i < dataSize / 4; i++) {
+    for (int i = 0; i < dataSize / sizeof(RGBA); i++) {
+        
+        // printf("(i: %ld, ds: %ld)\n", i, dataSize);
+
         if (image[i].a == 0) continue;
         BYTE average = round((image[i].r + image[i].g + image[i].b) / 3);
 
@@ -348,22 +501,22 @@ RGBA* pngGrayscale(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType
     return image;
 }
 
-RGBA* pngReflect(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngReflect(RGBA* image, long dataSize) {
     return image;
 }
 
-RGBA* pngSepia(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngSepia(RGBA* image, long dataSize) {
     return image;
 }
 
-RGBA* pngRedShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngRedShift(RGBA* image, long dataSize) {
     return image;
 }
 
-RGBA* pngGreenShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngGreenShift(RGBA* image, long dataSize) {
     return image;
 }
 
-RGBA* pngBlueShift(RGBA* image, size_t dataSize, BYTE filterType, BYTE colorType, BYTE bitDepth) {
+RGBA* pngBlueShift(RGBA* image, long dataSize) {
     return image;
 }
