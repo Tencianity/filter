@@ -39,7 +39,7 @@ int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
     }
     
     int score = 0;
-    for (int i = 0; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
         score += abs((int) data[i]);
     }
     
@@ -57,15 +57,15 @@ BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
     
-    for (int i = 0; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
-        BYTE prevPel;
-        if (i - 1 < 1) prevPel = 0;
-        else prevPel = data[offset + i - 1];
+        BYTE currByte = data[offset + i];
+        BYTE prevByte;
+        if (i - 1 < 1) prevByte = 0;
+        else prevByte = data[offset + i - 1];
 
         // unsigned int (BYTE) auto applies mod 256.
-        subData[i] = (currPel - prevPel);
+        subData[i] = (currByte - prevByte);
     }
 
     return subData;
@@ -82,15 +82,15 @@ BYTE* pngUnSubFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 1; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
-        BYTE subPel = data[offset + i];
-        BYTE prevPel;
-        if (i - 1 < 1) prevPel = 0;
-        else prevPel = unSubData[i - 1];
+        BYTE currByte = data[offset + i];
+        BYTE prevByte;
+        if (i - 1 < 1) prevByte = 0;
+        else prevByte = unSubData[i - 1];
 
         // unsigned int (BYTE) auto applies mod 256.
-        unSubData[i] = (subPel + prevPel);
+        unSubData[i] = (currByte + prevByte);
     }
 
     return unSubData;
@@ -104,15 +104,15 @@ BYTE* pngUpFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 0; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
-        BYTE upPel;
-        if (byteWidth - offset < 0) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE currByte = data[offset + i];
+        BYTE upByte;
+        if (byteWidth - offset < 0) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
-        upData[i] = (currPel - upPel);
+        upData[i] = (currByte - upByte);
     }
     
     return upData;
@@ -126,15 +126,15 @@ BYTE* pngUnUpFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 1; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
-        BYTE upPel;
-        if (byteWidth - offset < 1) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE currByte = data[offset + i];
+        BYTE upByte;
+        if (byteWidth - offset < 1) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
-        unUpData[i] = (currPel + upPel);
+        unUpData[i] = (currByte + upByte);
     }
     
     return unUpData;
@@ -147,19 +147,19 @@ BYTE* pngAverageFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 0; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
+        BYTE currByte = data[offset + i];
         
-        BYTE prevPel;
-        if (i - 1 < 0) prevPel = 0;
-        else prevPel = data[offset + i - 1];
+        BYTE prevByte;
+        if (i - 1 < 0) prevByte = 0;
+        else prevByte = data[offset + i - 1];
 
-        BYTE upPel;
-        if (byteWidth - offset < 0) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE upByte;
+        if (byteWidth - offset < 0) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
-        avgData[i] = currPel - (((int) prevPel + (int) upPel) / 2);
+        avgData[i] = currByte - (((int) prevByte + (int) upByte) / 2);
     }
     
     return avgData;
@@ -173,19 +173,19 @@ BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 1; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
+        BYTE currByte = data[offset + i];
         
-        BYTE prevPel;
-        if (i - 1 < 1) prevPel = 0;
-        else prevPel = unAvgData[i - 1];
+        BYTE prevByte;
+        if (i - 1 < 1) prevByte = 0;
+        else prevByte = unAvgData[i - 1];
 
-        BYTE upPel;
-        if (byteWidth - offset < 1) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE upByte;
+        if (byteWidth - offset < 1) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
-        unAvgData[i] = currPel + (((int) prevPel + (int) upPel) / 2);
+        unAvgData[i] = currByte + (((int) prevByte + (int) upByte) / 2);
     }
     
     return unAvgData;
@@ -199,30 +199,30 @@ BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 0; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
+        BYTE currByte = data[offset + i];
 
-        BYTE prevPel;
-        if (i - 1 < 0) prevPel = 0;
-        else prevPel = data[offset + i - 1];
+        BYTE prevByte;
+        if (i - 1 < 0) prevByte = 0;
+        else prevByte = data[offset + i - 1];
 
-        BYTE upPel;
-        if (byteWidth - offset < 0) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE upByte;
+        if (byteWidth - offset < 0) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
-        BYTE upLeftPel;
-        if (i - 1 < 0 || byteWidth - offset < 0) upLeftPel = 0;
-        else upLeftPel = data[offset + i - byteWidth - 1];
+        BYTE upLeftByte;
+        if (i - 1 < 0 || byteWidth - offset < 0) upLeftByte = 0;
+        else upLeftByte = data[offset + i - byteWidth - 1];
 
-        DWORD v = upPel + prevPel - upLeftPel;
-        DWORD vl = v - prevPel;
-        DWORD vu = v - upPel;
-        DWORD vul = v - upLeftPel;
+        DWORD v = upByte + prevByte - upLeftByte;
+        DWORD vl = v - prevByte;
+        DWORD vu = v - upByte;
+        DWORD vul = v - upLeftByte;
 
-        if (vl < vu && vl < vul) paethData[i] = currPel - prevPel;
-        else if (vu < vul) paethData[i] = currPel - upPel;
-        else paethData[i] = currPel - upLeftPel;
+        if (vl < vu && vl < vul) paethData[i] = currByte - prevByte;
+        else if (vu < vul) paethData[i] = currByte - upByte;
+        else paethData[i] = currByte - upLeftByte;
     }
     
     return paethData;
@@ -236,30 +236,30 @@ BYTE* pngUnPaethFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (int i = 1; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
-        BYTE currPel = data[offset + i];
+        BYTE currByte = data[offset + i];
 
-        BYTE prevPel;
-        if (i - 1 < 1) prevPel = 0;
-        else prevPel = unPaethData[i - 1];
+        BYTE prevByte;
+        if (i - 1 < 1) prevByte = 0;
+        else prevByte = unPaethData[i - 1];
 
-        BYTE upPel;
-        if (byteWidth - offset < 1) upPel = 0;
-        else upPel = data[offset + i - byteWidth];
+        BYTE upByte;
+        if (byteWidth - offset < 1) upByte = 0;
+        else upByte = data[offset + i - byteWidth];
 
-        BYTE upLeftPel;
-        if (i - 1 < 1 || byteWidth - offset < 1) upLeftPel = 0;
-        else upLeftPel = data[offset + i - byteWidth - 1];
+        BYTE upLeftByte;
+        if (i - 1 < 1 || byteWidth - offset < 1) upLeftByte = 0;
+        else upLeftByte = data[offset + i - byteWidth - 1];
 
-        DWORD v = upPel + prevPel - upLeftPel;
-        DWORD vl = v - prevPel;
-        DWORD vu = v - upPel;
-        DWORD vul = v - upLeftPel;
+        DWORD v = upByte + prevByte - upLeftByte;
+        DWORD vl = v - prevByte;
+        DWORD vu = v - upByte;
+        DWORD vul = v - upLeftByte;
 
-        if (vl < vu && vl < vul) unPaethData[i] = currPel + prevPel;
-        else if (vu < vul) unPaethData[i] = currPel + upPel;
-        else unPaethData[i] = currPel + upLeftPel;
+        if (vl < vu && vl < vul) unPaethData[i] = currByte + prevByte;
+        else if (vu < vul) unPaethData[i] = currByte + upByte;
+        else unPaethData[i] = currByte + upLeftByte;
     }
     
     return unPaethData;

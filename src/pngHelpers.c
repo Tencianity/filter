@@ -7,6 +7,7 @@
 
 #include "pngHelpers.h"
 #include "pngDecodeFilters.h"
+#include "pngImageFilters.h"
 #include "helpers.h"
 #include "CRC32.h"
 
@@ -72,7 +73,6 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     printf("Filtering pixels of image...\n");
 
     // Define important image reading variables
-    BYTE filterType = pi.filter;
     BYTE colorType = pi.colorType;
     BYTE bitDepth = pi.bitDepth;
 
@@ -108,57 +108,59 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         printf("ERROR: IDAT data size mismatch.\n");
     }
 
+    DWORD width = reverseLong(pi.width);
+    DWORD height = reverseLong(pi.height);
+
     printf("Uncompressing data stream for image filtering...\n");
+    long uncompressedSize = (width * bytesPerPixel + 1) * height;
+    printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
-         pi.width, pi.height, colorType, bitDepth);
+         width, height, colorType, bitDepth);
     
-    long uncompressedSize = (pi.width * bytesPerPixel + 1) * pi.height;
-    printf("Done uncompressing data stream.\n");
-    printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
 
     switch (filter) {
         // Blur
         case BLUR:
             printf("Applying blur filter...\n");
-            pngBlur(image, uncompressedSize);
+            pngBlur(image, uncompressedSize, bytesPerPixel);
             break;
 
         // Grayscale
         case GRAYSCALE:
             printf("Applying grayscale filter...\n");
-            pngGrayscale(image, uncompressedSize);
+            pngGrayscale(image, uncompressedSize, bytesPerPixel);
             printf("Done applying grayscale filter.\n");
             break;
 
         // Reflect
         case REFLECT:
             printf("Applying reflect filter...\n");
-            pngReflect(image, uncompressedSize);
+            pngReflect(image, uncompressedSize, bytesPerPixel);
             break;
 
         // Sepia
         case SEPIA:
             printf("Applying sepia filter...\n");
-            pngSepia(image, uncompressedSize);
+            pngSepia(image, uncompressedSize, bytesPerPixel);
             break;
 
         // Red
         case REDSHIFT:
             printf("Applying red shift filter...\n");
-            pngRedShift(image, uncompressedSize);
+            pngRedShift(image, uncompressedSize, bytesPerPixel);
             break;
 
         // Green
         case GREENSHIFT:
             printf("Applying green shift filter...\n");
-            pngGreenShift(image, uncompressedSize);
+            pngGreenShift(image, uncompressedSize, bytesPerPixel);
             break;
 
         // Blue
         case BLUESHIFT:
             printf("Applying blue shift filter...\n");
-            pngBlueShift(image, uncompressedSize);
+            pngBlueShift(image, uncompressedSize, bytesPerPixel);
             break;
             
         default:
@@ -167,9 +169,8 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     }
 
 
-    printf("Writing to outfile...\n");
-
-    DATASTREAM imageOut = pngPushPixels(image, pi.width, pi.height, colorType, bitDepth, filterType);
+    printf("Converting new pixels to data stream...\n");
+    DATASTREAM imageOut = pngPushPixels(image, uncompressedSize, width, height, colorType, bitDepth);
     if (imageOut.data == NULL) {
         free(image);
         free(chunks);
@@ -177,8 +178,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         printf("ERROR: Unable to compress image data.\n");
         return -1;
     }
-
+    
+    
     // Write new png to outfile
+    printf("Writing to outfile...\n");
     pngEncode(pf, pi, filter, imageOut, chunks, numChunks, outptr);
     
     printf("Done.\n");
@@ -383,6 +386,10 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
     printf("Number of total pixels: %ld\n", (uncompressedSize / bytesPerPixel));
 
     BYTE* imageStream = calloc(uncompressedSize, sizeof(BYTE));
+    if (imageStream == NULL) {
+        printf("ERROR: Not enough storage to hold new image data.\n");
+        return NULL;
+    }
     
     // Use zlib to inflate compressed data into buffer
     z_stream stream;
@@ -405,7 +412,7 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
         return NULL;
     }
     
-    RGBA* image = calloc(width * height, sizeof(BYTE));
+    RGBA* image = calloc(uncompressedSize, sizeof(BYTE));
     if (image == NULL) {
         printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
         free(imageStream);
@@ -414,12 +421,12 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
     
     // Each scanline has an additional "filtertype" byte so +1
     long byteWidth = width * bytesPerPixel + 1;
-
+    
     for (int i = 0; i < height; i++) {
-        BYTE f = imageStream[i * byteWidth];
+        FILTERTYPE f = imageStream[i * byteWidth];
         long offset = i * byteWidth;
         BYTE* unfiltered;
-
+        
         switch (f) {
             case NONE:
                 unfiltered = imageStream + offset;
@@ -445,7 +452,7 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
         // Simultaneously copy unfiltered data into a byte stream
         // and that data sans the filter_byte into an RGBA array.
         memcpy(imageStream + offset, unfiltered, byteWidth);
-        memcpy(image + (i * width), unfiltered + 1, byteWidth - 1);
+        memcpy(&image[i * width], unfiltered + 1, byteWidth - 1);
         free(unfiltered);
     }
     
@@ -590,44 +597,4 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter,
 
     }
 
-}
-
-RGBA* pngBlur(RGBA* image, long dataSize) {
-    return image;
-}
-
-RGBA* pngGrayscale(RGBA* image, long dataSize) {
-
-    for (long i = 0; i < dataSize / bytesPerPixel; i++) {
-        
-        // printf("(i: %d, ds: %d)\n", i, dataSize);
-
-        if (image[i].a == 0) continue;
-        BYTE average = round((image[i].r + image[i].g + image[i].b) / 3);
-
-        image[i].r = average;
-        image[i].g = average;
-        image[i].b = average;
-    }
-    return image;
-}
-
-RGBA* pngReflect(RGBA* image, long dataSize) {
-    return image;
-}
-
-RGBA* pngSepia(RGBA* image, long dataSize) {
-    return image;
-}
-
-RGBA* pngRedShift(RGBA* image, long dataSize) {
-    return image;
-}
-
-RGBA* pngGreenShift(RGBA* image, long dataSize) {
-    return image;
-}
-
-RGBA* pngBlueShift(RGBA* image, long dataSize) {
-    return image;
 }

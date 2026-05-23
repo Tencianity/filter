@@ -54,7 +54,7 @@ typedef struct {
 } __attribute__((__packed__))
 RGBA;
 
-static struct option long_options[] = {
+static const struct option long_options[] = {
     // --blur, --grayscale, --etc...
     /* 
         {   filter_name reference by cli ("--blur"),

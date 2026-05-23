@@ -20,13 +20,6 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth);
 void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
-RGBA* pngBlur(RGBA*, long);
-RGBA* pngGrayscale(RGBA*, long);
-RGBA* pngReflect(RGBA*, long);
-RGBA* pngSepia(RGBA*, long);
-RGBA* pngRedShift(RGBA*, long);
-RGBA* pngGreenShift(RGBA*, long);
-RGBA* pngBlueShift(RGBA*, long);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {
     return (sizeof(chunk.length) + sizeof(chunk.type) + sizeof(chunk.crc)) + reverseLong(chunk.length);
