@@ -6,7 +6,7 @@
 
 RGBA* pngBlur(RGBA* image, long dataSize, int bytesPerPixel);
 RGBA* pngGrayscale(RGBA* image, long dataSize, int bytesPerPixel);
-RGBA* pngReflect(RGBA* image, long dataSize, int bytesPerPixel);
+RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, long dataSize, int bytesPerPixel);
 RGBA* pngSepia(RGBA* image, long dataSize, int bytesPerPixel);
 RGBA* pngRedShift(RGBA* image, long dataSize, int bytesPerPixel);
 RGBA* pngGreenShift(RGBA* image, long dataSize, int bytesPerPixel);

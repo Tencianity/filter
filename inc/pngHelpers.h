@@ -12,7 +12,7 @@ char* pngChunkType(PNGCHUNK);
 int pngBytesPerPixel(BYTE colorType, BYTE bitDepth);
 int filterPNG(PNGHEADER, PNGINFOHEADER, char, FILE*, FILE*);
 
-RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, 
+RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth);
 

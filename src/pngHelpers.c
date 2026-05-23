@@ -114,6 +114,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     printf("Uncompressing data stream for image filtering...\n");
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
     printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
+    printf("Width * Height: %d * %d = %ld", width, height, (long) (width * height));
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
          width, height, colorType, bitDepth);
@@ -136,7 +137,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         // Reflect
         case REFLECT:
             printf("Applying reflect filter...\n");
-            pngReflect(image, uncompressedSize, bytesPerPixel);
+            pngReflect(image, width, height, uncompressedSize, bytesPerPixel);
             break;
 
         // Sepia
@@ -375,7 +376,7 @@ void pngPrintChunk(PNGCHUNK chunk) {
     printf("\n");
 }
 
-RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, 
+RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth) {
 
@@ -383,7 +384,7 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
     
     printf("\n\nBytes per pixel: %d\n", bytesPerPixel);
     printf("Calculated uncompressed size: %ld bytes\n", uncompressedSize);
-    printf("Number of total pixels: %ld\n", (uncompressedSize / bytesPerPixel));
+    printf("Number of total pixels: %ld\n", ((uncompressedSize - height) / bytesPerPixel));
 
     BYTE* imageStream = calloc(uncompressedSize, sizeof(BYTE));
     if (imageStream == NULL) {
@@ -411,8 +412,13 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
         free(imageStream);
         return NULL;
     }
+
+    if (stream.total_out != uncompressedSize)
+        printf("<%ld> bytes of data unaccounted for.\n", (uncompressedSize - stream.total_out));
+    else
+        printf("<%ld> total bytes decompressed.\n", stream.total_out);
     
-    RGBA* image = calloc(uncompressedSize, sizeof(BYTE));
+    RGBA* image = calloc(width * height, sizeof(RGBA));
     if (image == NULL) {
         printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
         free(imageStream);
@@ -426,9 +432,11 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
         FILTERTYPE f = imageStream[i * byteWidth];
         long offset = i * byteWidth;
         BYTE* unfiltered;
+        int noneFilter = FALSE;
         
         switch (f) {
             case NONE:
+                noneFilter = TRUE;
                 unfiltered = imageStream + offset;
                 break;
             case SUB:
@@ -451,9 +459,11 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
 
         // Simultaneously copy unfiltered data into a byte stream
         // and that data sans the filter_byte into an RGBA array.
-        memcpy(imageStream + offset, unfiltered, byteWidth);
-        memcpy(&image[i * width], unfiltered + 1, byteWidth - 1);
-        free(unfiltered);
+        if (noneFilter != TRUE)
+            memcpy(imageStream + offset, unfiltered, byteWidth);
+        memcpy(image + i * width, unfiltered + 1, byteWidth - 1);
+        if (noneFilter != TRUE)
+            free(unfiltered);
     }
     
     printf("Done inflating image.\n");
@@ -486,35 +496,50 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
 
     for (int i = 0; i < height; i++) {
         // {noneScore, subScore, upScore, averageScore, paethScore}
-        BYTE scores[5];
         long currImageRow = i * imageByteWidth;
         
-        for (int f = NONE; f <= PAETH; f++) {
-            scores[f] = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, f);
+        FILTERTYPE bestFilter;
+        int lowestScore = 9999;
+        for (FILTERTYPE f = NONE; f <= PAETH; f++) {
+            int newScore = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, f);
+            if (newScore < lowestScore) {
+                lowestScore = newScore;
+                bestFilter = f;
+            }
         }
 
-        // Find the filter type with the best score
-        // if none filter has best score
-        if (scores[NONE] <= scores[SUB] && scores[NONE] <= scores[UP] && scores[NONE] <= scores[AVERAGE] && scores[NONE] <= scores[PAETH]) {
-            uncompressedData[dataOffset] = NONE;
+        uncompressedData[dataOffset] = (BYTE) bestFilter;
+
+        BYTE* filteredData;
+        switch (bestFilter) {
+            case NONE:
+                memcpy(uncompressedData + dataOffset + 1, imageStream + imageOffset, imageByteWidth);
+                filteredData = calloc(dataByteWidth, sizeof(BYTE));
+                break;
+            case SUB:
+                filteredData = pngSubFilter(imageStream, imageByteWidth, dataOffset);
+                memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
+                break;
+            case UP:
+                filteredData = pngUpFilter(imageStream, imageByteWidth, dataOffset);
+                memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
+                break;
+            case AVERAGE:
+                filteredData = pngAverageFilter(imageStream, imageByteWidth, dataOffset);
+                memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
+                break;
+            case PAETH:
+                filteredData = pngPaethFilter(imageStream, imageByteWidth, dataOffset);
+                memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
+                break;
+            default:
+                printf("ERROR: wtf (pngHelpers.c: 534).\n");
+                free(uncompressedData);
+                free(compressedData);
+                return (DATASTREAM){0, NULL};
         }
-        // else if sub filter has best score
-        else if (scores[SUB] <= scores[NONE] && scores[SUB] <= scores[UP] && scores[SUB] <= scores[AVERAGE] && scores[SUB] <= scores[PAETH]) {
-            uncompressedData[dataOffset] = SUB;
-        }
-        // else if up filter has best score
-        else if (scores[UP] <= scores[NONE] && scores[UP] <= scores[SUB] && scores[UP] <= scores[AVERAGE] && scores[UP] <= scores[PAETH]) {
-            uncompressedData[dataOffset] = UP;
-        }
-        // else if average filter has best score
-        else if (scores[AVERAGE] <= scores[NONE] && scores[AVERAGE] <= scores[SUB] && scores[AVERAGE] <= scores[UP] && scores[AVERAGE] <= scores[PAETH]) {
-            uncompressedData[dataOffset] = AVERAGE;
-        }
-        // else if paeth filter has best score
-        else {
-            uncompressedData[dataOffset] = PAETH;
-        }
-        memcpy(uncompressedData + dataOffset + 1, imageStream + imageOffset, imageByteWidth);
+        free(filteredData);
+        
         imageOffset += imageByteWidth;
         dataOffset += dataByteWidth;
     }

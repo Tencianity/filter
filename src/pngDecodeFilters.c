@@ -10,22 +10,28 @@
  */
 int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
     
+    BYTE* newData = calloc(byteWidth, sizeof(BYTE));
+    if (newData == NULL) {
+        printf("Filter score calculation failed.\n");
+        return -1;
+    }
+    
     switch (f) {
 
         case NONE:
-            data = data;
+            memcpy(newData, data, byteWidth);
             break;
         case SUB:
-            data = pngSubFilter(data, byteWidth, offset);
+            newData = pngSubFilter(data, byteWidth, offset);
             break;
         case UP:
-            data = pngUpFilter(data, byteWidth, offset);
+            newData = pngUpFilter(data, byteWidth, offset);
             break;
         case AVERAGE:
-            data = pngAverageFilter(data, byteWidth, offset);
+            newData = pngAverageFilter(data, byteWidth, offset);
             break;
         case PAETH:
-            data = pngPaethFilter(data, byteWidth, offset);
+            newData = pngPaethFilter(data, byteWidth, offset);
             break;
         default:
             printf("Invalid chunk filter type.\n");
@@ -33,16 +39,12 @@ int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
 
     }
 
-    if (data == NULL) {
-        printf("Filter score calculation failed.\n");
-        return -1;
-    }
-    
     int score = 0;
-    for (long i = 1; i < byteWidth; i++) {
-        score += abs((int) data[i]);
+    for (long i = 0; i < byteWidth; i++) {
+        score += abs((int) newData[i]);
     }
     
+    free(newData);
     return score;
 }
 
@@ -61,7 +63,7 @@ BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset) {
 
         BYTE currByte = data[offset + i];
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
+        if (i < 1) prevByte = 0;
         else prevByte = data[offset + i - 1];
 
         // unsigned int (BYTE) auto applies mod 256.
@@ -108,7 +110,7 @@ BYTE* pngUpFilter(BYTE* data, long byteWidth, long offset) {
 
         BYTE currByte = data[offset + i];
         BYTE upByte;
-        if (byteWidth - offset < 0) upByte = 0;
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
         else upByte = data[offset + i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
@@ -130,8 +132,8 @@ BYTE* pngUnUpFilter(BYTE* data, long byteWidth, long offset) {
 
         BYTE currByte = data[offset + i];
         BYTE upByte;
-        if (byteWidth - offset < 1) upByte = 0;
-        else upByte = data[offset + i - byteWidth];
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
+        else upByte = unUpData[i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
         unUpData[i] = (currByte + upByte);
@@ -147,16 +149,16 @@ BYTE* pngAverageFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (long i = 0; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
         
         BYTE prevByte;
-        if (i - 1 < 0) prevByte = 0;
+        if (i - 1 < 1) prevByte = 0;
         else prevByte = data[offset + i - 1];
 
         BYTE upByte;
-        if (byteWidth - offset < 0) upByte = 0;
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
         else upByte = data[offset + i - byteWidth];
 
         avgData[i] = currByte - (((int) prevByte + (int) upByte) / 2);
@@ -173,17 +175,17 @@ BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (long i = 1; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
         
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
+        if (i < 1) prevByte = 0;
         else prevByte = unAvgData[i - 1];
 
         BYTE upByte;
-        if (byteWidth - offset < 1) upByte = 0;
-        else upByte = data[offset + i - byteWidth];
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
+        else upByte = unAvgData[i - byteWidth];  // use reconstructed data from previous row
 
         unAvgData[i] = currByte + (((int) prevByte + (int) upByte) / 2);
     }
@@ -199,20 +201,20 @@ BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (long i = 0; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
 
         BYTE prevByte;
-        if (i - 1 < 0) prevByte = 0;
+        if (i - 1 < 1) prevByte = 0;
         else prevByte = data[offset + i - 1];
 
         BYTE upByte;
-        if (byteWidth - offset < 0) upByte = 0;
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
         else upByte = data[offset + i - byteWidth];
 
         BYTE upLeftByte;
-        if (i - 1 < 0 || byteWidth - offset < 0) upLeftByte = 0;
+        if (i - 1 < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
         else upLeftByte = data[offset + i - byteWidth - 1];
 
         DWORD v = upByte + prevByte - upLeftByte;
@@ -236,21 +238,21 @@ BYTE* pngUnPaethFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (long i = 1; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
 
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
+        if (i < 1) prevByte = 0;
         else prevByte = unPaethData[i - 1];
 
         BYTE upByte;
-        if (byteWidth - offset < 1) upByte = 0;
-        else upByte = data[offset + i - byteWidth];
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
+        else upByte = unPaethData[i - byteWidth];  // use reconstructed data from previous row
 
         BYTE upLeftByte;
-        if (i - 1 < 1 || byteWidth - offset < 1) upLeftByte = 0;
-        else upLeftByte = data[offset + i - byteWidth - 1];
+        if (i < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
+        else upLeftByte = unPaethData[i - byteWidth - 1];  // use reconstructed data from previous row
 
         DWORD v = upByte + prevByte - upLeftByte;
         DWORD vl = v - prevByte;
