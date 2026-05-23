@@ -36,4 +36,10 @@ typedef struct {
 } __attribute__((__packed__))
 PNGCHUNK;
 
+typedef struct {
+    long length;
+    BYTE* data;
+} __attribute__((__packed__))
+DATASTREAM;
+
 #endif

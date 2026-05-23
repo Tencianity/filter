@@ -2,6 +2,7 @@
 #define PNGHELP_H
 
 #include "png.h"
+#include "helpers.h"
 
 PNGCHUNK pngReadChunk(FILE*);
 PNGINFOHEADER pngConvertChunkToHeader(PNGCHUNK);
@@ -13,11 +14,12 @@ int filterPNG(PNGHEADER, PNGINFOHEADER, char, FILE*, FILE*);
 
 RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, 
                      DWORD width, DWORD height,
-                     BYTE colorType, BYTE bitDepth, long uncompressedSize);
+                     BYTE colorType, BYTE bitDepth);
 
-BYTE* pngPushPixels(RGBA* image, long dataSize,
-                     BYTE colorType, BYTE bitDepth, BYTE filterType);
-void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, BYTE*, PNGCHUNK*, size_t, long, FILE*);
+DATASTREAM pngPushPixels(RGBA* image, long dataSize,
+                     DWORD width, DWORD height,
+                     BYTE colorType, BYTE bitDepth);
+void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
 RGBA* pngBlur(RGBA*, long);
 RGBA* pngGrayscale(RGBA*, long);
 RGBA* pngReflect(RGBA*, long);

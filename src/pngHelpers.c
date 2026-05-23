@@ -6,9 +6,11 @@
 #include <zlib.h>
 
 #include "pngHelpers.h"
+#include "pngDecodeFilters.h"
 #include "helpers.h"
 #include "CRC32.h"
 
+static int bytesPerPixel;
 
 int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
                 char filter, FILE* inptr, FILE* outptr) {
@@ -16,6 +18,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     // Allocate reasonable number of chunks
     // Use 1000 as safe upper bound to avoid massive heap allocation
     PNGCHUNK (*chunks) = calloc(MAX_CHUNKS, sizeof(PNGCHUNK));
+    bytesPerPixel = pngBytesPerPixel(pi.colorType, pi.bitDepth);
     
     if (chunks == NULL) {
         printf("Not enough space to store png chunks.\n");
@@ -25,9 +28,8 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     printf("Reading chunks of png... \n");
     
     // Read all chunks of the png into an array of PNGCHUNK types
-    int numChunks = 0;
-    size_t numIdats = 0;
-    size_t dataSize = 0;
+    DWORD numChunks = 0;
+    long dataSize = 0;
     int readingChunks = TRUE;
 
     while (readingChunks) {
@@ -44,7 +46,6 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
         if (!strcmp(type, "IDAT")) {
             dataSize += pngTrueLength(chunk);
-            numIdats++;
         }
 
         // Check if we've exceeded max chunks
@@ -109,11 +110,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
     printf("Uncompressing data stream for image filtering...\n");
 
-    long uncompressedSize = (pi.width * pngBytesPerPixel(colorType, bitDepth) + 1) * pi.height;
-
     RGBA* image = pngPullPixels(idatStream, dataSize,
-         pi.width, pi.height, colorType, bitDepth, uncompressedSize);
-         
+         pi.width, pi.height, colorType, bitDepth);
+    
+    long uncompressedSize = (pi.width * bytesPerPixel + 1) * pi.height;
     printf("Done uncompressing data stream.\n");
     printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
 
@@ -169,17 +169,24 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
     printf("Writing to outfile...\n");
 
-    BYTE* imageOut = pngPushPixels(image, uncompressedSize, colorType, bitDepth, filterType);
+    DATASTREAM imageOut = pngPushPixels(image, pi.width, pi.height, colorType, bitDepth, filterType);
+    if (imageOut.data == NULL) {
+        free(image);
+        free(chunks);
+        free(idatStream);
+        printf("ERROR: Unable to compress image data.\n");
+        return -1;
+    }
 
     // Write new png to outfile
-    pngEncode(pf, pi, filter, imageOut, chunks, numChunks, dataSize, outptr);
+    pngEncode(pf, pi, filter, imageOut, chunks, numChunks, outptr);
     
     printf("Done.\n");
     
     free(chunks);
     free(image);
     free(idatStream);
-    free(imageOut);
+    free(imageOut.data);
     return 0;
 }
 
@@ -329,7 +336,7 @@ int pngBytesPerPixel(BYTE colorType, BYTE bitDepth) {
         case 2:  // RGB
             bytesPerPixel = (bitDepth / 8) * 3;
             break;
-        case 3:  // Indexed (palette)
+        case 3:  // Color Palette
             bytesPerPixel = 1;
             break;
         case 4:  // Grayscale + Alpha
@@ -367,19 +374,15 @@ void pngPrintChunk(PNGCHUNK chunk) {
 
 RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize, 
                      DWORD width, DWORD height,
-                     BYTE colorType, BYTE bitDepth, long uncompressedSize) {
+                     BYTE colorType, BYTE bitDepth) {
 
+    long uncompressedSize = (width * bytesPerPixel + 1) * height;
     
-    printf("\n\nBytes per pixel: %d\n", pngBytesPerPixel(colorType, bitDepth));
+    printf("\n\nBytes per pixel: %d\n", bytesPerPixel);
     printf("Calculated uncompressed size: %ld bytes\n", uncompressedSize);
-    printf("Number of total pixels: %ld\n", (uncompressedSize / pngBytesPerPixel(colorType, bitDepth)));
+    printf("Number of total pixels: %ld\n", (uncompressedSize / bytesPerPixel));
 
-    RGBA* image = calloc(uncompressedSize, sizeof(BYTE));
-
-    if (image == NULL) {
-        printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
-        return NULL;
-    }
+    BYTE* imageStream = calloc(uncompressedSize, sizeof(BYTE));
     
     // Use zlib to inflate compressed data into buffer
     z_stream stream;
@@ -390,30 +393,123 @@ RGBA* pngPullPixels(BYTE* idatStream, size_t dataSize,
     stream.avail_in = dataSize;
     stream.next_in = idatStream;
     stream.avail_out = uncompressedSize;
-    stream.next_out = (BYTE*) image;
-
+    stream.next_out = imageStream;
+    
     inflateInit(&stream);
     int ret = inflate(&stream, Z_FINISH);
     inflateEnd(&stream);
     
     if (ret != Z_STREAM_END) {
         printf("Inflate failed with code: %d\n", ret);
-        free(image);
+        free(imageStream);
         return NULL;
     }
     
+    RGBA* image = calloc(width * height, sizeof(BYTE));
+    if (image == NULL) {
+        printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
+        free(imageStream);
+        return NULL;
+    }
+    
+    // Each scanline has an additional "filtertype" byte so +1
+    long byteWidth = width * bytesPerPixel + 1;
+
+    for (int i = 0; i < height; i++) {
+        BYTE f = imageStream[i * byteWidth];
+        long offset = i * byteWidth;
+        BYTE* unfiltered;
+
+        switch (f) {
+            case NONE:
+                unfiltered = imageStream + offset;
+                break;
+            case SUB:
+                unfiltered = pngUnSubFilter(imageStream, byteWidth, offset);
+                break;
+            case UP:
+                unfiltered = pngUnUpFilter(imageStream, byteWidth, offset);
+                break;
+            case AVERAGE:
+                unfiltered = pngUnAverageFilter(imageStream, byteWidth, offset);
+                break;
+            case PAETH:
+                unfiltered = pngUnPaethFilter(imageStream, byteWidth, offset);
+                break;
+            default:
+                printf("Invalid chunk filter type: %d\n", f);
+                free(imageStream);
+                return NULL;
+        }
+
+        // Simultaneously copy unfiltered data into a byte stream
+        // and that data sans the filter_byte into an RGBA array.
+        memcpy(imageStream + offset, unfiltered, byteWidth);
+        memcpy(image + (i * width), unfiltered + 1, byteWidth - 1);
+        free(unfiltered);
+    }
+    
+    printf("Done inflating image.\n");
+    free(imageStream);
     return image;
 }
 
-BYTE* pngPushPixels(RGBA* image, long dataSize,
-                    BYTE colorType, BYTE bitDepth, 
-                    BYTE filterType) {
+DATASTREAM pngPushPixels(RGBA* image, long dataSize,
+                        DWORD width, DWORD height,
+                        BYTE colorType, BYTE bitDepth) {
 
+    BYTE* uncompressedData = calloc(dataSize, sizeof(BYTE));
     BYTE* compressedData = calloc(dataSize, sizeof(BYTE));
+    BYTE* imageStream = (BYTE*) image;
+
+    if (uncompressedData == NULL) {
+        printf("Not enough space to store uncompressed data.\n");
+        return (DATASTREAM){0, NULL};
+    }
     
     if (compressedData == NULL) {
         printf("Not enough space to store compressed data.\n");
-        return NULL;
+        return (DATASTREAM){0, NULL};
+    }
+
+    long imageByteWidth = width * bytesPerPixel;
+    long dataByteWidth = width * bytesPerPixel + 1;  // +1 for filter type byte
+    long imageOffset = 0;
+    long dataOffset = 0;
+
+    for (int i = 0; i < height; i++) {
+        // {noneScore, subScore, upScore, averageScore, paethScore}
+        BYTE scores[5];
+        long currImageRow = i * imageByteWidth;
+        
+        for (int f = NONE; f <= PAETH; f++) {
+            scores[f] = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, f);
+        }
+
+        // Find the filter type with the best score
+        // if none filter has best score
+        if (scores[NONE] <= scores[SUB] && scores[NONE] <= scores[UP] && scores[NONE] <= scores[AVERAGE] && scores[NONE] <= scores[PAETH]) {
+            uncompressedData[dataOffset] = NONE;
+        }
+        // else if sub filter has best score
+        else if (scores[SUB] <= scores[NONE] && scores[SUB] <= scores[UP] && scores[SUB] <= scores[AVERAGE] && scores[SUB] <= scores[PAETH]) {
+            uncompressedData[dataOffset] = SUB;
+        }
+        // else if up filter has best score
+        else if (scores[UP] <= scores[NONE] && scores[UP] <= scores[SUB] && scores[UP] <= scores[AVERAGE] && scores[UP] <= scores[PAETH]) {
+            uncompressedData[dataOffset] = UP;
+        }
+        // else if average filter has best score
+        else if (scores[AVERAGE] <= scores[NONE] && scores[AVERAGE] <= scores[SUB] && scores[AVERAGE] <= scores[UP] && scores[AVERAGE] <= scores[PAETH]) {
+            uncompressedData[dataOffset] = AVERAGE;
+        }
+        // else if paeth filter has best score
+        else {
+            uncompressedData[dataOffset] = PAETH;
+        }
+        memcpy(uncompressedData + dataOffset + 1, imageStream + imageOffset, imageByteWidth);
+        imageOffset += imageByteWidth;
+        dataOffset += dataByteWidth;
     }
 
     // Use zlib to deflate uncompressed data into compressed
@@ -422,7 +518,7 @@ BYTE* pngPushPixels(RGBA* image, long dataSize,
     stream.zfree = Z_NULL;
     stream.opaque = Z_NULL;
     stream.avail_in = dataSize;
-    stream.next_in = (BYTE*) image;
+    stream.next_in = uncompressedData;
     stream.avail_out = dataSize;
     stream.next_out = compressedData;
     deflateInit(&stream, Z_BEST_COMPRESSION);
@@ -431,21 +527,31 @@ BYTE* pngPushPixels(RGBA* image, long dataSize,
 
     if (ret != Z_STREAM_END) {
         printf("Deflate failed with code: %d\n", ret);
+        free(uncompressedData);
         free(compressedData);
-        return NULL;
+        return (DATASTREAM){0, NULL};
     }
     
-    return compressedData;
+    free(uncompressedData);
+    DATASTREAM result = {stream.total_out, compressedData};
+    return result;
 }
 
 void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter, 
-                BYTE* image, PNGCHUNK* chunks, size_t numChunks,
-                long dataSize, FILE* outfile) {
+                DATASTREAM ds, PNGCHUNK* chunks, DWORD numChunks,
+                FILE* outfile) {
 
     fwrite(&pf, sizeof(pf), 1, outfile);
     fwrite(&pi, sizeof(pi), 1, outfile);
+    
+    long datasize = ds.length;
+    BYTE* data = ds.data;
 
-    int imageIndex = 0;
+    DWORD chunkSize = 8192;
+    DWORD numIdatChunks = datasize / chunkSize;
+    DWORD overflowBytes = datasize % chunkSize;
+    if (overflowBytes != 0) numIdatChunks++;
+    long imageIndex = 0;
     
     for (int i = 0; i < numChunks; i++) {
 
@@ -459,10 +565,15 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter,
         }
 
         else if (!strcmp(type, "IDAT")) {
+            if (--numIdatChunks == 0 && overflowBytes != 0)
+                chunkSize = overflowBytes;
+            
             // Keep length and type the same.
             // Write new compressed data and CRC32.
-            int trueLength = pngTrueLength(chunks[i]);
-            memcpy(chunks[i].data, image + imageIndex, trueLength);
+            chunks[i].length = is_little_endian() ? 
+                reverseLong(chunkSize) : chunkSize;
+            
+            memcpy(chunks[i].data, data + imageIndex, chunkSize);
 
             chunks[i].crc = is_little_endian() ?
                 reverseLong(pngCalculateCRC(chunks[i])) : pngCalculateCRC(chunks[i]);
@@ -471,9 +582,9 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter,
             // Write recalculated data to outfile
             fwrite(&chunks[i].length, sizeof(DWORD), 1, outfile);
             fwrite(&chunks[i].type, sizeof(char), 4, outfile);
-            fwrite(chunks[i].data, sizeof(BYTE), trueLength, outfile);
+            fwrite(chunks[i].data, sizeof(BYTE), chunkSize, outfile);
             fwrite(&chunks[i].crc, sizeof(DWORD), 1, outfile);
-            imageIndex += trueLength;
+            imageIndex += chunkSize;
         }
         free(type);
 
@@ -487,9 +598,9 @@ RGBA* pngBlur(RGBA* image, long dataSize) {
 
 RGBA* pngGrayscale(RGBA* image, long dataSize) {
 
-    for (int i = 0; i < dataSize / sizeof(RGBA); i++) {
+    for (long i = 0; i < dataSize / bytesPerPixel; i++) {
         
-        // printf("(i: %ld, ds: %ld)\n", i, dataSize);
+        // printf("(i: %d, ds: %d)\n", i, dataSize);
 
         if (image[i].a == 0) continue;
         BYTE average = round((image[i].r + image[i].g + image[i].b) / 3);
