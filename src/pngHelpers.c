@@ -122,8 +122,8 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     switch (filter) {
         // Blur
         case BLUR:
-            printf("Applying blur filter...\n");
-            image = pngBlur(image, imageSize, bytesPerPixel);
+            printf("\nApplying blur filter...\n");
+            image = pngBlur(image, width, height, bytesPerPixel);
             break;
 
         // Grayscale
@@ -135,36 +135,36 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
         // Reflect
         case REFLECT:
-            printf("Applying reflect filter...\n");
-            image = pngReflect(image, width, height, imageSize, bytesPerPixel);
+            printf("\nApplying reflect filter...\n");
+            image = pngReflect(image, width, height, bytesPerPixel);
             break;
 
         // Sepia
         case SEPIA:
-            printf("Applying sepia filter...\n");
+            printf("\nApplying sepia filter...\n");
             image = pngSepia(image, imageSize, bytesPerPixel);
             break;
 
         // Red
         case REDSHIFT:
-            printf("Applying red shift filter...\n");
+            printf("\nApplying red shift filter...\n");
             image = pngRedShift(image, imageSize, bytesPerPixel);
             break;
 
         // Green
         case GREENSHIFT:
-            printf("Applying green shift filter...\n");
+            printf("\nApplying green shift filter...\n");
             image = pngGreenShift(image, imageSize, bytesPerPixel);
             break;
 
         // Blue
         case BLUESHIFT:
-            printf("Applying blue shift filter...\n");
+            printf("\nApplying blue shift filter...\n");
             image = pngBlueShift(image, imageSize, bytesPerPixel);
             break;
             
         default:
-            printf("Attempted to apply unknown filter type.\n");
+            printf("\nAttempted to apply unknown filter type.\n");
             break;
     }
 
