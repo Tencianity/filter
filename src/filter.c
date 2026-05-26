@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Open output file
-    FILE* outptr = fopen(outfile, "wb");
+    FILE* outptr = fopen(outfile, "wb+");
 
     if (outptr == NULL) {
         fclose(inptr);
@@ -127,24 +127,28 @@ int main(int argc, char* argv[]) {
         fread(&pi, sizeof(PNGINFOHEADER), 1, inptr);
 
         if (!strcmp(pi.type, "ERR")) return 22;
+
+        DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
+        DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
+        DWORD crc = is_little_endian() ? reverseLong(pi.crc) : pi.crc;
         
         printf( "FILE BITS: %c%c%c\n"
-                "highBit: %#x\ndos: %#x\neof: %#x\nline ending: %#x\n",
+                "highBit: %#.2x\ndos: %#.4x\neof: %#.2x\nline ending: %#.2x\n",
                 pf.png[0], pf.png[1], pf.png[2],
                 pf.highBit, pf.dos, pf.endOfFile, pf.lineEnding
         );
         printf("\n");
 
 
-        printf( "Length: %#x\n"
+        printf( "Length: %#.8x\n"
                 "Type: %c%c%c%c\n",
                 reverseLong(pi.length), pi.type[0], pi.type[1], pi.type[2], pi.type[3]
         );
         printf( "width: %u\nheight: %u\nbitdepth: %u\ncolor type: %d\n"
                 "compression: %d\nfilter type: %d\ninterlace: %d\nCRC: %x.\n",
-                pi.width, pi.height, pi.bitDepth,
+                width, height, pi.bitDepth,
                 pi.colorType, pi.compression,
-                pi.filter, pi.interlace, pi.crc
+                pi.filter, pi.interlace, crc
         );
         printf("\n");
         filterPNG(pf, pi, filter, inptr, outptr);

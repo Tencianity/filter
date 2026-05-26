@@ -8,7 +8,7 @@
  * Returns the compression score of the selected filter
  * for a given byte stream with widths of <byteWidth>.
  */
-int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
+int pngFilterScore(BYTE* data, long byteWidth, long offset, int bpp, FILTERTYPE f) {
     
     BYTE* newData = calloc(byteWidth, sizeof(BYTE));
     if (newData == NULL) {
@@ -16,22 +16,24 @@ int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
         return -1;
     }
     
+    // Check the specified byte-filter type on the scanline of data
+    // and return the sum of absolute values of each byte (score)
     switch (f) {
 
         case NONE:
             memcpy(newData, data, byteWidth);
             break;
         case SUB:
-            newData = pngSubFilter(data, byteWidth, offset);
+            newData = pngSubFilter(data, byteWidth, offset, bpp);
             break;
         case UP:
             newData = pngUpFilter(data, byteWidth, offset);
             break;
         case AVERAGE:
-            newData = pngAverageFilter(data, byteWidth, offset);
+            newData = pngAverageFilter(data, byteWidth, offset, bpp);
             break;
         case PAETH:
-            newData = pngPaethFilter(data, byteWidth, offset);
+            newData = pngPaethFilter(data, byteWidth, offset, bpp);
             break;
         default:
             printf("Invalid chunk filter type.\n");
@@ -51,8 +53,8 @@ int pngFilterScore(BYTE* data, long byteWidth, long offset, FILTERTYPE f) {
 /**
  * WIP
  */
-BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset) {
-
+BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset, int bpp) {
+    
     BYTE* subData = calloc(byteWidth, sizeof(BYTE));
     if (subData == NULL) {
         printf("Not enough memory to store sub filtered data.\n");
@@ -63,8 +65,8 @@ BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset) {
 
         BYTE currByte = data[offset + i];
         BYTE prevByte;
-        if (i < 1) prevByte = 0;
-        else prevByte = data[offset + i - 1];
+        if (i - bpp < 0) prevByte = 0;
+        else prevByte = data[offset + i - bpp];
 
         // unsigned int (BYTE) auto applies mod 256.
         subData[i] = (currByte - prevByte);
@@ -76,7 +78,7 @@ BYTE* pngSubFilter(BYTE* data, long byteWidth, long offset) {
 /**
  * WIP
  */
-BYTE* pngUnSubFilter(BYTE* data, long byteWidth, long offset) {
+BYTE* pngUnSubFilter(BYTE* data, long byteWidth, long offset, int bpp) {
 
     BYTE* unSubData = calloc(byteWidth, sizeof(BYTE));
     if (unSubData == NULL) {
@@ -88,8 +90,8 @@ BYTE* pngUnSubFilter(BYTE* data, long byteWidth, long offset) {
 
         BYTE currByte = data[offset + i];
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
-        else prevByte = unSubData[i - 1];
+        if (i - bpp < 1) prevByte = 0;
+        else prevByte = unSubData[i - bpp];
 
         // unsigned int (BYTE) auto applies mod 256.
         unSubData[i] = (currByte + prevByte);
@@ -133,7 +135,7 @@ BYTE* pngUnUpFilter(BYTE* data, long byteWidth, long offset) {
         BYTE currByte = data[offset + i];
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = unUpData[i - byteWidth];
+        else upByte = data[i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
         unUpData[i] = (currByte + upByte);
@@ -142,32 +144,33 @@ BYTE* pngUnUpFilter(BYTE* data, long byteWidth, long offset) {
     return unUpData;
 }
 
-BYTE* pngAverageFilter(BYTE* data, long byteWidth, long offset) {
+BYTE* pngAverageFilter(BYTE* data, long byteWidth, long offset, int bpp) {
+
     BYTE* avgData = calloc(byteWidth, sizeof(BYTE));
     if (avgData == NULL) {
         printf("Not enough memory to store average filtered data.\n");
         return NULL;
     }
 
-    for (long i = 1; i < byteWidth; i++) {
+    for (long i = 0; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
         
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
-        else prevByte = data[offset + i - 1];
+        if (i - bpp < 0) prevByte = 0;
+        else prevByte = data[offset + i - bpp];
 
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
         else upByte = data[offset + i - byteWidth];
 
-        avgData[i] = currByte - (((int) prevByte + (int) upByte) / 2);
+        avgData[i] = currByte - ((DWORD) (( (DWORD) prevByte + (DWORD) upByte ) / 2));
     }
     
     return avgData;
 }
 
-BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset) {
+BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset, int bpp) {
 
     BYTE* unAvgData = calloc(byteWidth, sizeof(BYTE));
     if (unAvgData == NULL) {
@@ -175,29 +178,66 @@ BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset) {
         return NULL;
     }
 
-    for (long i = 0; i < byteWidth; i++) {
+    for (long i = 1; i < byteWidth; i++) {
 
         BYTE currByte = data[offset + i];
         
         BYTE prevByte;
-        if (i < 1) prevByte = 0;
-        else prevByte = unAvgData[i - 1];
+        if (i - bpp < 1) prevByte = 0;
+        else prevByte = unAvgData[i - bpp];
 
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = unAvgData[i - byteWidth];  // use reconstructed data from previous row
+        else upByte = data[i - byteWidth];  // use reconstructed data from previous row
 
-        unAvgData[i] = currByte + (((int) prevByte + (int) upByte) / 2);
+        unAvgData[i] = currByte + ((DWORD) (( (DWORD) prevByte + (DWORD) upByte ) / 2));
     }
     
     return unAvgData;
 }
 
-BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset) {
+BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset, int bpp) {
 
     BYTE* paethData = calloc(byteWidth, sizeof(BYTE));
     if (paethData == NULL) {
         printf("Not enough memory to store paeth filtered data.\n");
+        return NULL;
+    }
+
+    for (long i = 0; i < byteWidth; i++) {
+
+        BYTE currByte = data[offset + i];
+
+        BYTE prevByte;
+        if (i - bpp < 0) prevByte = 0;
+        else prevByte = data[offset + i - bpp];
+
+        BYTE upByte;
+        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
+        else upByte = data[offset + i - byteWidth];
+
+        BYTE upLeftByte;
+        if (i - bpp < 0 || offset < byteWidth) upLeftByte = 0;  // first row or first column
+        else upLeftByte = data[offset + i - byteWidth - bpp];
+
+        DWORD v = upByte + prevByte - upLeftByte;
+        DWORD vl = v - prevByte;
+        DWORD vu = v - upByte;
+        DWORD vul = v - upLeftByte;
+
+        if (vl <= vu && vl <= vul) paethData[i] = currByte - prevByte;
+        else if (vu <= vul) paethData[i] = currByte - upByte;
+        else paethData[i] = currByte - upLeftByte;
+    }
+    
+    return paethData;
+}
+
+BYTE* pngUnPaethFilter(BYTE* data, long byteWidth, long offset, int bpp) {
+
+    BYTE* unPaethData = calloc(byteWidth, sizeof(BYTE));
+    if (unPaethData == NULL) {
+        printf("Not enough memory to store paeth unfiltered data.\n");
         return NULL;
     }
 
@@ -206,61 +246,24 @@ BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset) {
         BYTE currByte = data[offset + i];
 
         BYTE prevByte;
-        if (i - 1 < 1) prevByte = 0;
-        else prevByte = data[offset + i - 1];
+        if (i - bpp < 1) prevByte = 0;
+        else prevByte = unPaethData[i - bpp];
 
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = data[offset + i - byteWidth];
+        else upByte = data[i - byteWidth];  // use reconstructed data from previous row
 
         BYTE upLeftByte;
-        if (i - 1 < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
-        else upLeftByte = data[offset + i - byteWidth - 1];
+        if (i - bpp < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
+        else upLeftByte = data[i - byteWidth - bpp];  // use reconstructed data from previous row
 
         DWORD v = upByte + prevByte - upLeftByte;
         DWORD vl = v - prevByte;
         DWORD vu = v - upByte;
         DWORD vul = v - upLeftByte;
 
-        if (vl < vu && vl < vul) paethData[i] = currByte - prevByte;
-        else if (vu < vul) paethData[i] = currByte - upByte;
-        else paethData[i] = currByte - upLeftByte;
-    }
-    
-    return paethData;
-}
-
-BYTE* pngUnPaethFilter(BYTE* data, long byteWidth, long offset) {
-
-    BYTE* unPaethData = calloc(byteWidth, sizeof(BYTE));
-    if (unPaethData == NULL) {
-        printf("Not enough memory to store paeth unfiltered data.\n");
-        return NULL;
-    }
-
-    for (long i = 0; i < byteWidth; i++) {
-
-        BYTE currByte = data[offset + i];
-
-        BYTE prevByte;
-        if (i < 1) prevByte = 0;
-        else prevByte = unPaethData[i - 1];
-
-        BYTE upByte;
-        if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = unPaethData[i - byteWidth];  // use reconstructed data from previous row
-
-        BYTE upLeftByte;
-        if (i < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
-        else upLeftByte = unPaethData[i - byteWidth - 1];  // use reconstructed data from previous row
-
-        DWORD v = upByte + prevByte - upLeftByte;
-        DWORD vl = v - prevByte;
-        DWORD vu = v - upByte;
-        DWORD vul = v - upLeftByte;
-
-        if (vl < vu && vl < vul) unPaethData[i] = currByte + prevByte;
-        else if (vu < vul) unPaethData[i] = currByte + upByte;
+        if (vl <= vu && vl <= vul) unPaethData[i] = currByte + prevByte;
+        else if (vu <= vul) unPaethData[i] = currByte + upByte;
         else unPaethData[i] = currByte + upLeftByte;
     }
     

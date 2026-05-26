@@ -108,60 +108,59 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         printf("ERROR: IDAT data size mismatch.\n");
     }
 
-    DWORD width = reverseLong(pi.width);
-    DWORD height = reverseLong(pi.height);
+    DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
+    DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
 
     printf("Uncompressing data stream for image filtering...\n");
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
-    printf("Preused uncompressed size: %ld bytes\n", uncompressedSize);
-    printf("Width * Height: %d * %d = %ld", width, height, (long) (width * height));
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
          width, height, colorType, bitDepth);
+    long imageSize = width * height;
     
 
     switch (filter) {
         // Blur
         case BLUR:
             printf("Applying blur filter...\n");
-            pngBlur(image, uncompressedSize, bytesPerPixel);
+            image = pngBlur(image, imageSize, bytesPerPixel);
             break;
 
         // Grayscale
         case GRAYSCALE:
-            printf("Applying grayscale filter...\n");
-            pngGrayscale(image, uncompressedSize, bytesPerPixel);
-            printf("Done applying grayscale filter.\n");
+            printf("\nApplying grayscale filter...\n");
+            image = pngGrayscale(image, imageSize, bytesPerPixel);
+            printf("Done applying grayscale filter.\n\n");
             break;
 
         // Reflect
         case REFLECT:
             printf("Applying reflect filter...\n");
-            pngReflect(image, width, height, uncompressedSize, bytesPerPixel);
+            image = pngReflect(image, width, height, imageSize, bytesPerPixel);
             break;
 
         // Sepia
         case SEPIA:
             printf("Applying sepia filter...\n");
-            pngSepia(image, uncompressedSize, bytesPerPixel);
+            image = pngSepia(image, imageSize, bytesPerPixel);
             break;
 
         // Red
         case REDSHIFT:
             printf("Applying red shift filter...\n");
-            pngRedShift(image, uncompressedSize, bytesPerPixel);
+            image = pngRedShift(image, imageSize, bytesPerPixel);
             break;
 
         // Green
         case GREENSHIFT:
             printf("Applying green shift filter...\n");
-            pngGreenShift(image, uncompressedSize, bytesPerPixel);
+            image = pngGreenShift(image, imageSize, bytesPerPixel);
             break;
 
         // Blue
         case BLUESHIFT:
             printf("Applying blue shift filter...\n");
-            pngBlueShift(image, uncompressedSize, bytesPerPixel);
+            image = pngBlueShift(image, imageSize, bytesPerPixel);
             break;
             
         default:
@@ -381,10 +380,6 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
                      BYTE colorType, BYTE bitDepth) {
 
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
-    
-    printf("\n\nBytes per pixel: %d\n", bytesPerPixel);
-    printf("Calculated uncompressed size: %ld bytes\n", uncompressedSize);
-    printf("Number of total pixels: %ld\n", ((uncompressedSize - height) / bytesPerPixel));
 
     BYTE* imageStream = calloc(uncompressedSize, sizeof(BYTE));
     if (imageStream == NULL) {
@@ -429,27 +424,26 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
     long byteWidth = width * bytesPerPixel + 1;
     
     for (int i = 0; i < height; i++) {
-        FILTERTYPE f = imageStream[i * byteWidth];
         long offset = i * byteWidth;
+        FILTERTYPE f = imageStream[offset];
         BYTE* unfiltered;
-        int noneFilter = FALSE;
+        int noneFilter = !f; // TRUE if f is 0 (filtertype.NONE)
         
         switch (f) {
             case NONE:
-                noneFilter = TRUE;
-                unfiltered = imageStream + offset;
+                unfiltered = imageStream + offset + 1;
                 break;
             case SUB:
-                unfiltered = pngUnSubFilter(imageStream, byteWidth, offset);
+                unfiltered = pngUnSubFilter(imageStream, byteWidth, offset, bytesPerPixel);
                 break;
             case UP:
                 unfiltered = pngUnUpFilter(imageStream, byteWidth, offset);
                 break;
             case AVERAGE:
-                unfiltered = pngUnAverageFilter(imageStream, byteWidth, offset);
+                unfiltered = pngUnAverageFilter(imageStream, byteWidth, offset, bytesPerPixel);
                 break;
             case PAETH:
-                unfiltered = pngUnPaethFilter(imageStream, byteWidth, offset);
+                unfiltered = pngUnPaethFilter(imageStream, byteWidth, offset, bytesPerPixel);
                 break;
             default:
                 printf("Invalid chunk filter type: %d\n", f);
@@ -460,8 +454,9 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
         // Simultaneously copy unfiltered data into a byte stream
         // and that data sans the filter_byte into an RGBA array.
         if (noneFilter != TRUE)
-            memcpy(imageStream + offset, unfiltered, byteWidth);
+            memcpy(imageStream + offset + 1, unfiltered, byteWidth - 1);
         memcpy(image + i * width, unfiltered + 1, byteWidth - 1);
+
         if (noneFilter != TRUE)
             free(unfiltered);
     }
@@ -498,10 +493,11 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         // {noneScore, subScore, upScore, averageScore, paethScore}
         long currImageRow = i * imageByteWidth;
         
+        // Select the best byte-filter for the scanline
         FILTERTYPE bestFilter;
-        int lowestScore = 9999;
+        int lowestScore = 999999;
         for (FILTERTYPE f = NONE; f <= PAETH; f++) {
-            int newScore = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, f);
+            int newScore = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, bytesPerPixel, f);
             if (newScore < lowestScore) {
                 lowestScore = newScore;
                 bestFilter = f;
@@ -517,19 +513,19 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
                 filteredData = calloc(dataByteWidth, sizeof(BYTE));
                 break;
             case SUB:
-                filteredData = pngSubFilter(imageStream, imageByteWidth, dataOffset);
+                filteredData = pngSubFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case UP:
-                filteredData = pngUpFilter(imageStream, imageByteWidth, dataOffset);
+                filteredData = pngUpFilter(imageStream, imageByteWidth, imageOffset);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case AVERAGE:
-                filteredData = pngAverageFilter(imageStream, imageByteWidth, dataOffset);
+                filteredData = pngAverageFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case PAETH:
-                filteredData = pngPaethFilter(imageStream, imageByteWidth, dataOffset);
+                filteredData = pngPaethFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             default:

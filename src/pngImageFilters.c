@@ -9,39 +9,37 @@ RGBA* pngBlur(RGBA* image, long dataSize, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngGrayscale(RGBA* image, long dataSize, int bytesPerPixel) {
+RGBA* pngGrayscale(RGBA* image, long imageSize, int bytesPerPixel) {
     BYTE* img = (BYTE*) image;
 
-    for (long i = 0; i < dataSize / bytesPerPixel; i++) {
-        BYTE r, g, b, a;
-        r = *(img + 0);
-        g = *(img + 1);
-        b = *(img + 2);
-        a = *(img + 3);
+    for (long i = 0; i < imageSize; i++) {
+        BYTE r = *(img + 0);
+        BYTE g = *(img + 1);
+        BYTE b = *(img + 2);
+        BYTE a = *(img + 3);
         
-        // printf("(i: %d, ds: %d)\n", i, dataSize);
-
-        if (a <= 0) continue;
-        BYTE average = round((r + g + b) / 3);
-
-        *(img + 0) = average;
-        *(img + 1) = average;
-        *(img + 2) = average;
+        if (a > 0) {
+            BYTE average = round((r + g + b) / 3.0);
+            *(img + 0) = average;
+            *(img + 1) = average;
+            *(img + 2) = average;
+        }
         img += bytesPerPixel;
     }
-    return image;
+    return (RGBA*) image;
 }
 
 RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, long dataSize, int bytesPerPixel) {
-    // for (int i = 0; i < (height); i++) {
-    //     for (int j = 0; j < (width / 2) - (width % 2); j++) {
 
-    //         RGB original = image[i][j];
-    //         image[i][j] = image[i][width-j];
-    //         image[i][width-j] = original;
+    // long byteWidth = width * bytesPerPixel;
 
-    //     }
-    // }
+    for (int row = 0; row < height; row++) {
+        for (int col = 0; col < width; col++) {
+            // long pelOffset = col * bytesPerPixel;
+            
+        
+        }
+    }
     
     return image;
 }
