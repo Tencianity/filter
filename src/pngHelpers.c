@@ -116,7 +116,6 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
          width, height, colorType, bitDepth);
-    long imageSize = width * height;
     
 
     switch (filter) {
@@ -129,7 +128,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         // Grayscale
         case GRAYSCALE:
             printf("\nApplying grayscale filter...\n");
-            image = pngGrayscale(image, imageSize, bytesPerPixel);
+            image = pngGrayscale(image, width, height, bytesPerPixel);
             printf("Done applying grayscale filter.\n\n");
             break;
 
@@ -142,25 +141,25 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         // Sepia
         case SEPIA:
             printf("\nApplying sepia filter...\n");
-            image = pngSepia(image, imageSize, bytesPerPixel);
+            image = pngSepia(image, width, height, bytesPerPixel);
             break;
 
         // Red
         case REDSHIFT:
             printf("\nApplying red shift filter...\n");
-            image = pngRedShift(image, imageSize, bytesPerPixel);
+            image = pngRedShift(image, width, height, bytesPerPixel);
             break;
 
         // Green
         case GREENSHIFT:
             printf("\nApplying green shift filter...\n");
-            image = pngGreenShift(image, imageSize, bytesPerPixel);
+            image = pngGreenShift(image, width, height, bytesPerPixel);
             break;
 
         // Blue
         case BLUESHIFT:
             printf("\nApplying blue shift filter...\n");
-            image = pngBlueShift(image, imageSize, bytesPerPixel);
+            image = pngBlueShift(image, width, height, bytesPerPixel);
             break;
             
         default:
@@ -489,6 +488,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
     long imageOffset = 0;
     long dataOffset = 0;
 
+    printf("Starting scanline filtering.\n");
     for (int i = 0; i < height; i++) {
         // {noneScore, subScore, upScore, averageScore, paethScore}
         long currImageRow = i * imageByteWidth;
@@ -540,6 +540,8 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         dataOffset += dataByteWidth;
     }
 
+    printf("Starting image deflating.\n");
+    
     // Use zlib to deflate uncompressed data into compressed
     z_stream stream;
     stream.zalloc = Z_NULL;
