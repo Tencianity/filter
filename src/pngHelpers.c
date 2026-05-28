@@ -115,7 +115,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
-         width, height, colorType, bitDepth);
+         width, height, colorType, bitDepth, pi.interlace);
     
 
     switch (filter) {
@@ -376,7 +376,7 @@ void pngPrintChunk(PNGCHUNK chunk) {
 
 RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
-                     BYTE colorType, BYTE bitDepth) {
+                     BYTE colorType, BYTE bitDepth, BYTE interlace) {
 
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
 
@@ -411,53 +411,17 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
         printf("<%ld> bytes of data unaccounted for.\n", (uncompressedSize - stream.total_out));
     else
         printf("<%ld> total bytes decompressed.\n", stream.total_out);
-    
-    RGBA* image = calloc(width * height, sizeof(RGBA));
+        
+
+    RGBA* image = pngUnfilter(imageStream, width, height);
     if (image == NULL) {
-        printf("Not enough space to store image (needed %ld bytes).\n", uncompressedSize);
+        printf("Unable to create pixels from image.\n");
         free(imageStream);
         return NULL;
     }
     
-    // Each scanline has an additional "filtertype" byte so +1
-    long byteWidth = width * bytesPerPixel + 1;
-    
-    for (int i = 0; i < height; i++) {
-        long offset = i * byteWidth;
-        FILTERTYPE f = imageStream[offset];
-        BYTE* unfiltered;
-        int noneFilter = !f; // TRUE if f is 0 (filtertype.NONE)
-        
-        switch (f) {
-            case NONE:
-                unfiltered = imageStream + offset + 1;
-                break;
-            case SUB:
-                unfiltered = pngUnSubFilter(imageStream, byteWidth, offset, bytesPerPixel);
-                break;
-            case UP:
-                unfiltered = pngUnUpFilter(imageStream, byteWidth, offset);
-                break;
-            case AVERAGE:
-                unfiltered = pngUnAverageFilter(imageStream, byteWidth, offset, bytesPerPixel);
-                break;
-            case PAETH:
-                unfiltered = pngUnPaethFilter(imageStream, byteWidth, offset, bytesPerPixel);
-                break;
-            default:
-                printf("Invalid chunk filter type: %d\n", f);
-                free(imageStream);
-                return NULL;
-        }
-
-        // Simultaneously copy unfiltered data into a byte stream
-        // and that data sans the filter_byte into an RGBA array.
-        if (noneFilter != TRUE)
-            memcpy(imageStream + offset + 1, unfiltered, byteWidth - 1);
-        memcpy(image + i * width, unfiltered + 1, byteWidth - 1);
-
-        if (noneFilter != TRUE)
-            free(unfiltered);
+    if (interlace == 1) {
+        pngUnlace(image, width, height);
     }
     
     printf("Done inflating image.\n");
@@ -619,5 +583,98 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter,
         free(type);
 
     }
-
 }
+
+RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
+
+    RGBA* image = calloc(width * height, sizeof(RGBA));
+    if (image == NULL) {
+        printf("Unable to allocate space for image pixels.\n");
+        return NULL;
+    }
+
+    // Each scanline has an additional "filtertype" byte so +1
+    long byteWidth = width * bytesPerPixel + 1;
+    
+    for (int i = 0; i < height; i++) {
+        long offset = i * byteWidth;
+        FILTERTYPE f = imageStream[offset];
+        BYTE* unfiltered;
+        int noneFilter = !f; // TRUE if f is 0 (filtertype.NONE)
+        
+        switch (f) {
+            case NONE:
+                unfiltered = imageStream + offset + 1;
+                break;
+            case SUB:
+                unfiltered = pngUnSubFilter(imageStream, byteWidth, offset, bytesPerPixel);
+                break;
+            case UP:
+                unfiltered = pngUnUpFilter(imageStream, byteWidth, offset);
+                break;
+            case AVERAGE:
+                unfiltered = pngUnAverageFilter(imageStream, byteWidth, offset, bytesPerPixel);
+                break;
+            case PAETH:
+                unfiltered = pngUnPaethFilter(imageStream, byteWidth, offset, bytesPerPixel);
+                break;
+            default:
+                printf("Invalid chunk filter type: %d\n", f);
+                return NULL;
+        }
+
+        // Simultaneously copy unfiltered data into a byte stream
+        // and that data sans the filter_byte into an RGBA array.
+        if (noneFilter != TRUE)
+            memcpy(imageStream + offset + 1, unfiltered, byteWidth - 1);
+        memcpy(image + i * width, unfiltered + 1, byteWidth - 1);
+
+        if (noneFilter != TRUE)
+            free(unfiltered);
+    }
+
+    return image;
+}
+
+RGBA* pngUnlace(RGBA* image, DWORD width, DWORD height) {
+    
+    const int ADAM7[8][8] = {
+                        {1,6,4,6,2,6,4,6},
+                        {7,7,7,7,7,7,7,7},
+                        {5,6,5,6,5,6,5,6},
+                        {7,7,7,7,7,7,7,7},
+                        {3,6,4,6,3,6,4,6},
+                        {7,7,7,7,7,7,7,7},
+                        {5,6,5,6,5,6,5,6},
+                        {7,7,7,7,7,7,7,7}
+    };
+
+    RGBA* unlacedImage = calloc(width * height, sizeof(RGBA));
+    if (unlacedImage == NULL) {
+        printf("Unable to allocate storage for image pixels.\n");
+        return NULL;
+    }
+
+    long interlacedIndex = 0;
+    for (int pass = 1; pass <= 7; pass++) {
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                
+                int adamRow = y % 8;
+                int adamCol = x % 8;
+
+                if (ADAM7[adamRow][adamCol] == pass) {
+                    long pxlIndex = x + y * width;
+                    unlacedImage[interlacedIndex] = image[pxlIndex];
+                    interlacedIndex++;
+                }
+            }
+        }
+    }
+    
+    memcpy(image, unlacedImage, width * height * sizeof(RGBA));
+    free(unlacedImage);
+    return image;
+}
+

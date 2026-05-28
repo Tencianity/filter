@@ -14,12 +14,14 @@ int filterPNG(PNGHEADER, PNGINFOHEADER, char, FILE*, FILE*);
 
 RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
-                     BYTE colorType, BYTE bitDepth);
+                     BYTE colorType, BYTE bitDepth, BYTE interlace);
 
 DATASTREAM pngPushPixels(RGBA* image, long dataSize,
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth);
 void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
+RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
+RGBA* pngUnlace(RGBA* image, DWORD witdh, DWORD height);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {
     return (sizeof(chunk.length) + sizeof(chunk.type) + sizeof(chunk.crc)) + reverseLong(chunk.length);

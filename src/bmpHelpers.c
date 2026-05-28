@@ -257,7 +257,7 @@ void redShift(int height, int width, RGB image[height][width]) {
     {
         for (int j = 0; j < width; j++)
         {
-            int tr = image[i][j].r * 1.25f;
+            int tr = image[i][j].r * 1.20f;
             int tg = image[i][j].g * 0.90f;
             int tb = image[i][j].b * 0.90f;
             
@@ -281,7 +281,7 @@ void greenShift(int height, int width, RGB image[height][width]) {
         for (int j = 0; j < width; j++)
         {
             int tr = image[i][j].r * 0.90f;
-            int tg = image[i][j].g * 1.25f;
+            int tg = image[i][j].g * 1.20f;
             int tb = image[i][j].b * 0.90f;
             
             if (tr > 255) tr = 255;
@@ -305,7 +305,7 @@ void blueShift(int height, int width, RGB image[height][width]) {
         {
             int tr = image[i][j].r * 0.90f;
             int tg = image[i][j].g * 0.90f;
-            int tb = image[i][j].b * 1.25f;
+            int tb = image[i][j].b * 1.20f;
             
             if (tr > 255) tr = 255;
             if (tg > 255) tg = 255;
