@@ -2,72 +2,14 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "pngHelpers.h"
 #include "pngImageFilters.h"
 #include "helpers.h"
 #include "png.h"
 
-// RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
-
-//     const long BLURSIZE = 3;
-
-//     RGBA* imageCopy = calloc(width * height, sizeof(RGBA));
-//     if (imageCopy == NULL) {
-//         printf("Unable to allocate enough space to copy image pixels.\n");
-//         return NULL;
-//     }
-
-//     printf("\n\nStarting blur loop.\n"); // debugging
-
-//     if (bytesPerPixel == 4) {
-//         for (long y = 0; y < height; y++) {
-//             for (long x = 0; x < width; x++) {
-//                 if (y == 1 && x == 0) printf("Got to first scanline of pixels for blur Loop.\n"); // debugging
-//                 DWORD redAverage = 0, greenAverage = 0, blueAverage = 0, alphaAverage = 0, count = 0;
-//                 long pxlIndex = (y * width) + x;
-
-//                 for (long row = -BLURSIZE; row <= BLURSIZE; row++) {
-//                     for (long col = -BLURSIZE; col <= BLURSIZE; col++) {
-
-//                         if (y + row < 0 || y + row >= height) continue;
-//                         if (x + col < 0 || x + col >= width) continue;
-
-//                         // if (y == 1 && x == 0) printf("Did not break: x: %ld, y: %ld, row: %ld, col: %ld\n", x, y, row, col);
-
-//                         long tempIndex = pxlIndex + (row * width) + col;
-                        
-//                         redAverage += image[tempIndex].r;
-//                         greenAverage += image[tempIndex].g;
-//                         blueAverage += image[tempIndex].b;
-//                         alphaAverage += image[tempIndex].a;
-//                         count++;
-//                     }
-//                 }
-
-//                 if (count == 0) continue;
-//                 redAverage /= (float) count;
-//                 greenAverage /= (float) count;
-//                 blueAverage /= (float) count;
-//                 alphaAverage /= (float) count;
-
-//                 imageCopy[pxlIndex].r = redAverage < 255 ? (BYTE) redAverage : 255;
-//                 imageCopy[pxlIndex].g = greenAverage < 255 ? (BYTE) greenAverage : 255;
-//                 imageCopy[pxlIndex].b = blueAverage < 255 ? (BYTE) blueAverage : 255;
-//                 imageCopy[pxlIndex].a = alphaAverage < 255 ? (BYTE) alphaAverage : 255;
-//                 if (y == 0 && x == 0) printf("Got through first pixel for blur Loop.\n"); // debugging
-//                 if (y == 1 && x == 0) printf("Got through first scanline of pixels for blur Loop.\n"); // debugging
-//                 if (y == height / 2 && x == width / 2) printf("Got through half of pixels for blur Loop.\n"); // debugging
-//                 if (y == height - 1 && x == 0) printf("On second last scanline of pixels for blur Loop.\n"); // debugging
-//             }
-//         }
-//     }
+RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
-//     memcpy(image, imageCopy, width * height * sizeof(RGBA));
-//     free(imageCopy);
-//     return image;
-// }
-
-RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
-    
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     const BYTE BLURSIZE = 3;
     long byteWidth = width * bytesPerPixel;
     
@@ -107,8 +49,9 @@ RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     long imageSize = width * height;
     BYTE* img = (BYTE*) image;
 
@@ -116,7 +59,7 @@ RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
         BYTE r = *(img + 0);
         BYTE g = *(img + 1);
         BYTE b = *(img + 2);
-        BYTE a = *(img + 3);
+        BYTE a = colorType == 3 || colorType == 6 ? *(img + 3) : 255;
         
         if (a > 0) {
             BYTE average = (r + g + b) / 3;
@@ -129,8 +72,9 @@ RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return (RGBA*) image;
 }
 
-RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     BYTE* img = (BYTE*) image;
     long byteWidth = width * bytesPerPixel;
 
@@ -154,8 +98,9 @@ RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
@@ -178,8 +123,9 @@ RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
@@ -203,8 +149,9 @@ RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
@@ -228,8 +175,9 @@ RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
     return image;
 }
 
-RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, int bytesPerPixel) {
+RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
+    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 

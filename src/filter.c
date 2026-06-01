@@ -144,8 +144,8 @@ int main(int argc, char* argv[]) {
                 "Type: %c%c%c%c\n",
                 reverseLong(pi.length), pi.type[0], pi.type[1], pi.type[2], pi.type[3]
         );
-        printf( "width: %u\nheight: %u\nbitdepth: %u\ncolor type: %d\n"
-                "compression: %d\nfilter type: %d\ninterlace: %d\nCRC: %x.\n",
+        printf( "width: %u\theight: %u\tbitdepth: %u\ncolor type: %d\t"
+                "compression: %d\tfilter type: %d\ninterlace: %d\tCRC: %x.\n",
                 width, height, pi.bitDepth,
                 pi.colorType, pi.compression,
                 pi.filter, pi.interlace, crc

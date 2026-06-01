@@ -26,7 +26,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         return 23;
     }
     
-    printf("Reading chunks of png... \n");
+    printf("Reading chunks of png... \t");
     
     // Read all chunks of the png into an array of PNGCHUNK types
     DWORD numChunks = 0;
@@ -43,7 +43,6 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         
         if (!strcmp(type, "IEND")) {
             readingChunks = FALSE;
-            printf("\nReached end chunk.\n");
         }
 
         if (!strcmp(type, "IDAT")) {
@@ -75,7 +74,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     }
 
     printf("Done with (%d) chunks read.\n", numChunks);
-    printf("Filtering pixels of image...\n");
+    printf("Filtering pixels of image...\t");
 
     // Define important image reading variables
     BYTE colorType = pi.colorType;
@@ -88,8 +87,6 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         free(chunks);
         return -1;
     }
-
-    printf("Done reading IDAT data fields.\n");
 
     DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
     DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
@@ -112,44 +109,44 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         // Blur
         case BLUR:
             printf("\nApplying blur filter...\n");
-            image = pngBlur(image, width, height, bytesPerPixel);
+            image = pngBlur(image, width, height, bitDepth, colorType);
             break;
 
         // Grayscale
         case GRAYSCALE:
             printf("\nApplying grayscale filter...\n");
-            image = pngGrayscale(image, width, height, bytesPerPixel);
+            image = pngGrayscale(image, width, height, bitDepth, colorType);
             printf("Done applying grayscale filter.\n\n");
             break;
 
         // Reflect
         case REFLECT:
             printf("\nApplying reflect filter...\n");
-            image = pngReflect(image, width, height, bytesPerPixel);
+            image = pngReflect(image, width, height, bitDepth, colorType);
             break;
 
         // Sepia
         case SEPIA:
             printf("\nApplying sepia filter...\n");
-            image = pngSepia(image, width, height, bytesPerPixel);
+            image = pngSepia(image, width, height, bitDepth, colorType);
             break;
 
         // Red
         case REDSHIFT:
             printf("\nApplying red shift filter...\n");
-            image = pngRedShift(image, width, height, bytesPerPixel);
+            image = pngRedShift(image, width, height, bitDepth, colorType);
             break;
 
         // Green
         case GREENSHIFT:
             printf("\nApplying green shift filter...\n");
-            image = pngGreenShift(image, width, height, bytesPerPixel);
+            image = pngGreenShift(image, width, height, bitDepth, colorType);
             break;
 
         // Blue
         case BLUESHIFT:
             printf("\nApplying blue shift filter...\n");
-            image = pngBlueShift(image, width, height, bytesPerPixel);
+            image = pngBlueShift(image, width, height, bitDepth, colorType);
             break;
             
         default:
@@ -170,10 +167,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     
     
     // Write new png to outfile
-    printf("Writing to outfile...\n");
+    printf("Writing to outfile...\t");
     pngEncode(pf, pi, filter, imageOut, chunks, numChunks, outptr);
     
-    printf("Done.\n");
+    printf("Done.\n\n");
     
     free(chunks);
     free(image);
@@ -399,8 +396,6 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
 
     if (stream.total_out != uncompressedSize)
         printf("<%ld> bytes of data unaccounted for.\n", (uncompressedSize - stream.total_out));
-    else
-        printf("<%ld> total bytes decompressed.\n", stream.total_out);
         
 
     RGBA* image = pngUnfilter(imageStream, width, height);
@@ -414,7 +409,6 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
         pngUnlace(image, width, height);
     }
     
-    printf("Done inflating image.\n");
     free(imageStream);
     return image;
 }
