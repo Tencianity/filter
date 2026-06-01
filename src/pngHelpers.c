@@ -32,6 +32,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     DWORD numChunks = 0;
     long dataSize = 0;
     int readingChunks = TRUE;
+    BYTE gamma = 0;
 
     while (readingChunks) {
 
@@ -47,6 +48,10 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
         if (!strcmp(type, "IDAT")) {
             dataSize += pngTrueLength(chunk);
+        }
+
+        if (!strcmp(type, "gAMA")) {
+            gamma = chunk.data[0];
         }
 
         // Check if we've exceeded max chunks
@@ -77,36 +82,14 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     BYTE bitDepth = pi.bitDepth;
 
     // Concatenate all IDAT data fields into a byte stream
-    printf("Allocating memory for IDAT data stream...\n");
-    BYTE* idatStream = calloc(dataSize, sizeof(BYTE));
-
+    BYTE* idatStream = pngGroupData(chunks, numChunks, dataSize);
     if (idatStream == NULL) {
-        printf("Not enough space to store data stream.\n");
+        printf("Unable to read IDAT data from chunks.\n");
         free(chunks);
-        return 25;
+        return -1;
     }
-    printf("IDAT data holder memory allocated.\n");
 
-    printf("Reading data fields only from IDAT chunks...\n");
-    int index = 0;
-    for (int i = 0; i < numChunks; i++) {
-        
-        PNGCHUNK chunk = chunks[i];
-        
-        char* type = pngChunkType(chunk);
-        if (!strcmp(type, "IDAT")) {
-            DWORD trueLength = pngTrueLength(chunk);
-            memcpy(idatStream + index, chunk.data, trueLength);
-            index += trueLength;
-        }
-        free(type);
-    }
     printf("Done reading IDAT data fields.\n");
-
-    // Something is wrong if expected data amount not read
-    if (index != dataSize) {
-        printf("ERROR: IDAT data size mismatch.\n");
-    }
 
     DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
     DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
@@ -116,6 +99,13 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
 
     RGBA* image = pngPullPixels(idatStream, dataSize,
          width, height, colorType, bitDepth, pi.interlace);
+    if (image == NULL) {
+        printf("Unable to create pixels from image.\n");
+        free(chunks);
+        free(idatStream);
+        return -1;
+
+    }
     
 
     switch (filter) {
@@ -402,7 +392,7 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
     inflateEnd(&stream);
     
     if (ret != Z_STREAM_END) {
-        printf("Inflate failed with code: %d\n", ret);
+        printf("Inflate failed with z_code: %d\n", ret);
         free(imageStream);
         return NULL;
     }
@@ -678,3 +668,34 @@ RGBA* pngUnlace(RGBA* image, DWORD width, DWORD height) {
     return image;
 }
 
+BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize) {
+
+    BYTE* idatStream = calloc(dataSize, sizeof(BYTE));
+    if (idatStream == NULL) {
+        printf("Not enough space to store data stream.\n");
+        return NULL;
+    }
+
+    int index = 0;
+    for (int i = 0; i < numChunks; i++) {
+        
+        PNGCHUNK chunk = chunks[i];
+        
+        char* type = pngChunkType(chunk);
+        if (!strcmp(type, "IDAT")) {
+            DWORD trueLength = pngTrueLength(chunk);
+            memcpy(idatStream + index, chunk.data, trueLength);
+            index += trueLength;
+        }
+        free(type);
+    }
+
+    // Something is wrong if expected data amount not read
+    if (index != dataSize) {
+        printf("ERROR: IDAT data size mismatch.\n");
+        free(idatStream);
+        return NULL;
+    }
+
+    return idatStream;
+}

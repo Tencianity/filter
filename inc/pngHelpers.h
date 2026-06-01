@@ -22,6 +22,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
 void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
 RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
 RGBA* pngUnlace(RGBA* image, DWORD witdh, DWORD height);
+BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {
     return (sizeof(chunk.length) + sizeof(chunk.type) + sizeof(chunk.crc)) + reverseLong(chunk.length);
