@@ -23,7 +23,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     
     if (chunks == NULL) {
         printf("Not enough space to store png chunks.\n");
-        return 23;
+        return -1;
     }
     
     printf("Reading chunks of png... \t");
@@ -32,14 +32,11 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     DWORD numChunks = 0;
     long dataSize = 0;
     int readingChunks = TRUE;
-    BYTE gamma = 0;
 
     while (readingChunks) {
 
         PNGCHUNK chunk = pngReadChunk(inptr);
         char* type = pngChunkType(chunk);
-
-        // if (numChunks == 0) pngPrintChunk(chunk);
         
         if (!strcmp(type, "IEND")) {
             readingChunks = FALSE;
@@ -48,17 +45,13 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         if (!strcmp(type, "IDAT")) {
             dataSize += pngTrueLength(chunk);
         }
-
-        if (!strcmp(type, "gAMA")) {
-            gamma = chunk.data[0];
-        }
-
+        
         // Check if we've exceeded max chunks
         if (numChunks >= MAX_CHUNKS) {
             printf("ERROR: Exceeded maximum chunk limit (%d).\n", MAX_CHUNKS);
             free(type);
             free(chunks);
-            return 24;
+            return -1;
         }
 
         // Verify chunk integrity
@@ -436,7 +429,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
     long imageOffset = 0;
     long dataOffset = 0;
 
-    printf("Starting scanline filtering.\n");
+    printf("Starting scanline filtering...\n");
     for (int i = 0; i < height; i++) {
         // {noneScore, subScore, upScore, averageScore, paethScore}
         long currImageRow = i * imageByteWidth;
@@ -488,7 +481,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         dataOffset += dataByteWidth;
     }
 
-    printf("Starting image deflating.\n");
+    printf("Starting image deflating...\n");
     
     // Use zlib to deflate uncompressed data into compressed
     z_stream stream;
