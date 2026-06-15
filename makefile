@@ -6,8 +6,11 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 INCS = $(wildcard $(INC_DIR)/*.h)
 
 EXEC = filter
-
-CFLAGS = -g -I $(INC_DIR) -std=c23 -Wall -lm -lz
+CFLAGS1 = -g -O1 -I $(INC_DIR) -std=c23 -Wall -lm -lz
+CFLAGS2 = -g -I $(INC_DIR) -std=c23 -Wall -lm -lz
 
 $(EXEC): $(SRCS) $(INCS)
-	$(CC) $(CFLAGS) $(SRCS) -o filter
+	$(CC) $(CFLAGS1) $(SRCS) -o $(EXEC)
+
+safe: $(SRCS) $(INCS)
+	$(CC) $(CFLAGS2) $(SRCS) -o $(EXEC)-safe

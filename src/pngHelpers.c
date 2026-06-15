@@ -14,7 +14,7 @@
 static int bytesPerPixel;
 
 int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
-                char filter, FILE* inptr, FILE* outptr) {
+                char filter[100], FILE* inptr, FILE* outptr) {
 
     // Allocate reasonable number of chunks
     // Use 1000 as safe upper bound to avoid massive heap allocation
@@ -94,57 +94,64 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
         free(chunks);
         free(idatStream);
         return -1;
-
     }
     
+    // Count the number of image filters being applied
+    int numFilters = 0;
+    while (filter[numFilters++] != -1);
+    numFilters--;
 
-    switch (filter) {
-        // Blur
-        case BLUR:
-            printf("\nApplying blur filter...\n");
-            image = pngBlur(image, width, height, bitDepth, colorType);
-            break;
+    for (int i = 0; i < numFilters; i++) {
+        char f = filter[i];
+        switch (f) {
+            // Blur
+            case BLUR:
+                printf("\nApplying blur filter...\n");
+                pngBlur(image, width, height, bitDepth, colorType);
+                break;
 
-        // Grayscale
-        case GRAYSCALE:
-            printf("\nApplying grayscale filter...\n");
-            image = pngGrayscale(image, width, height, bitDepth, colorType);
-            printf("Done applying grayscale filter.\n\n");
-            break;
+            // Grayscale
+            case GRAYSCALE:
+                printf("\nApplying grayscale filter...\n");
+                pngGrayscale(image, width, height, bitDepth, colorType);
+                break;
 
-        // Reflect
-        case REFLECT:
-            printf("\nApplying reflect filter...\n");
-            image = pngReflect(image, width, height, bitDepth, colorType);
-            break;
+            // Reflect
+            case REFLECT:
+                printf("\nApplying reflect filter...\n");
+                pngReflect(image, width, height, bitDepth, colorType);
+                break;
 
-        // Sepia
-        case SEPIA:
-            printf("\nApplying sepia filter...\n");
-            image = pngSepia(image, width, height, bitDepth, colorType);
-            break;
+            // Sepia
+            case SEPIA:
+                printf("\nApplying sepia filter...\n");
+                pngSepia(image, width, height, bitDepth, colorType);
+                break;
 
-        // Red
-        case REDSHIFT:
-            printf("\nApplying red shift filter...\n");
-            image = pngRedShift(image, width, height, bitDepth, colorType);
-            break;
+            // Red
+            case REDSHIFT:
+                printf("\nApplying red shift filter...\n");
+                pngRedShift(image, width, height, bitDepth, colorType);
+                break;
 
-        // Green
-        case GREENSHIFT:
-            printf("\nApplying green shift filter...\n");
-            image = pngGreenShift(image, width, height, bitDepth, colorType);
-            break;
+            // Green
+            case GREENSHIFT:
+                printf("\nApplying green shift filter...\n");
+                pngGreenShift(image, width, height, bitDepth, colorType);
+                break;
 
-        // Blue
-        case BLUESHIFT:
-            printf("\nApplying blue shift filter...\n");
-            image = pngBlueShift(image, width, height, bitDepth, colorType);
-            break;
-            
-        default:
-            printf("\nAttempted to apply unknown filter type.\n");
-            break;
+            // Blue
+            case BLUESHIFT:
+                printf("\nApplying blue shift filter...\n");
+                pngBlueShift(image, width, height, bitDepth, colorType);
+                break;
+                
+            default:
+                printf("\nAttempted to apply unknown filter type.\n");
+                printf("filter[0]: %c, filter[1]: %c, filter[2]: %c, numFilters: %d, i: %d",
+                        filter[0], filter[1], filter[2], numFilters, i);
+                return -1;
+        }
     }
 
 
@@ -161,7 +168,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     
     // Write new png to outfile
     printf("Writing to outfile...\t");
-    pngEncode(pf, pi, filter, imageOut, chunks, numChunks, outptr);
+    pngEncode(pf, pi, imageOut, chunks, numChunks, outptr);
     
     printf("Done.\n\n");
     
@@ -435,7 +442,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         long currImageRow = i * imageByteWidth;
         
         // Select the best byte-filter for the scanline
-        FILTERTYPE bestFilter;
+        FILTERTYPE bestFilter = NONE;
         int lowestScore = 999999;
         for (FILTERTYPE f = NONE; f <= PAETH; f++) {
             int newScore = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, bytesPerPixel, f);
@@ -508,9 +515,8 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
     return result;
 }
 
-void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, BYTE filter, 
-                DATASTREAM ds, PNGCHUNK* chunks, DWORD numChunks,
-                FILE* outfile) {
+void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, DATASTREAM ds,
+                PNGCHUNK* chunks, DWORD numChunks, FILE* outfile) {
 
     fwrite(&pf, sizeof(pf), 1, outfile);
     fwrite(&pi, sizeof(pi), 1, outfile);

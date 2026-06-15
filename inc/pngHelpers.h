@@ -10,7 +10,7 @@ DWORD pngCalculateCRC(PNGCHUNK);
 BYTE pngVerifyChunk(PNGCHUNK);
 char* pngChunkType(PNGCHUNK);
 int pngBytesPerPixel(BYTE colorType, BYTE bitDepth);
-int filterPNG(PNGHEADER, PNGINFOHEADER, char, FILE*, FILE*);
+int filterPNG(PNGHEADER, PNGINFOHEADER, char[100], FILE*, FILE*);
 
 RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
@@ -19,7 +19,7 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
 DATASTREAM pngPushPixels(RGBA* image, long dataSize,
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth);
-void pngEncode(PNGHEADER, PNGINFOHEADER, BYTE, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
+void pngEncode(PNGHEADER, PNGINFOHEADER, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
 RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
 RGBA* pngUnlace(RGBA* image, DWORD witdh, DWORD height);
 BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize);

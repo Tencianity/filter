@@ -13,40 +13,42 @@ int main(int argc, char* argv[]) {
     */
 
     char* filters = "bgrsRGBh";
-    char filter;
+    char filter[100];
 
     // Get filter flag and check it is a valid option
+    int numFilters = 0;
     int option_index = 0;
-    if ((filter = getopt_long(argc, argv, filters, long_options, &option_index)) == -1) {
+    if ((filter[numFilters++] = getopt_long(argc, argv, filters, long_options, &option_index)) == -1) {
         printf("Unknown option. Use --help for usage information.\n");
         return 1;
     }
 
-    // Ensure only one filter
-    if (getopt_long(argc, argv, filters, long_options, NULL) != -1) {
-        printf("Only one filter allowed.\n");
-        return 2;
+    // Store multiple filters
+    while ((filter[numFilters++] = getopt_long(argc, argv, filters, long_options, NULL)) != -1) {
+        filter[numFilters++] = getopt_long(argc, argv, filters, long_options, NULL);
     }
 
     // Display help message
-    if (filter == HELP) {   
-        printf("Usage: ./filter [OPTIONS] infile outfile\n\n");
-        printf("OPTIONS:\n"
-               "  --blur          Blurs the image.\n"
-               "  --grayscale     Converts the image to grayscale.\n"
-               "  --reflect       Reflects the image horizontally.\n"
-               "  --sepia         Applies a sepia filter to the image.\n"
-               "  --redshift      Increases the red values of the image.\n"
-               "  --greenshift    Increases the green values of the image.\n"
-               "  --blueshift     Increases the blue values of the image.\n");
-        return 0;
+    for (int i = 0; i < numFilters; i++) {
+        if (filter[i] == HELP) {   
+            printf("Usage: ./filter [OPTIONS] infile outfile\n\n");
+            printf("OPTIONS:\n"
+                "  --blur          Blurs the image.\n"
+                "  --grayscale     Converts the image to grayscale.\n"
+                "  --reflect       Reflects the image horizontally.\n"
+                "  --sepia         Applies a sepia filter to the image.\n"
+                "  --redshift      Increases the red values of the image.\n"
+                "  --greenshift    Increases the green values of the image.\n"
+                "  --blueshift     Increases the blue values of the image.\n");
+            return 0;
+        }
     }
 
     // Ensure proper usage
-    if (argc != optind + 2) {
-        printf("Usage: ./filter [flag (--blueshift --grayscale --help)] infile outfile\n");
-        return 3;
-    }
+    // if (argc != optind + 2) {
+    //     printf("Usage: ./filter [flag (--blueshift --grayscale --help)] infile outfile\n");
+    //     return 3;
+    // }
 
 
     // Remember filenames
@@ -120,6 +122,7 @@ int main(int argc, char* argv[]) {
         BITMAPV5INFOHEADER bi;
         filterBMP(bf, bi, filter, inptr, outptr);
     }
+
     else if (!strcmp(getFileType(infile), "png")) {
         PNGHEADER pf;
         fread(&pf, sizeof(PNGHEADER), 1, inptr);
@@ -131,6 +134,7 @@ int main(int argc, char* argv[]) {
         DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
         DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
         DWORD crc = is_little_endian() ? reverseLong(pi.crc) : pi.crc;
+        DWORD headerLength = is_little_endian() ? reverseLong(pi.length) : pi.length;
         
         printf( "FILE BITS: %c%c%c\n"
                 "highBit: %#.2x\ndos: %#.4x\neof: %#.2x\nline ending: %#.2x\n",
@@ -142,16 +146,21 @@ int main(int argc, char* argv[]) {
 
         printf( "Length: %#.8x\n"
                 "Type: %c%c%c%c\n",
-                reverseLong(pi.length), pi.type[0], pi.type[1], pi.type[2], pi.type[3]
+                headerLength, pi.type[0], pi.type[1], pi.type[2], pi.type[3]
         );
         printf( "width: %u\theight: %u\tbitdepth: %u\ncolor type: %d\t"
-                "compression: %d\tfilter type: %d\ninterlace: %d\tCRC: %x.\n",
+                "compression: %d\tfilter type: %d\ninterlace: %d\tCRC: %x.\n\n",
                 width, height, pi.bitDepth,
                 pi.colorType, pi.compression,
                 pi.filter, pi.interlace, crc
         );
-        printf("\n");
         filterPNG(pf, pi, filter, inptr, outptr);
+    }
+    
+    else {
+        fclose(inptr);
+        fclose(outptr);
+        return 10;
     }
 
 
