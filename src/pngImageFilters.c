@@ -51,24 +51,24 @@ BYTE* pngBlur(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorT
 
 BYTE* pngGrayscale(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
-    // BYTE bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
-    // long imageSize = width * height;
-    // BYTE* img = (BYTE*) image;
+    BYTE bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    long imageSize = width * height;
+    BYTE* img = (BYTE*) image;
 
-    // for (long i = 0; i < imageSize; i++) {
-    //     BYTE r = *(img + 0);
-    //     BYTE g = *(img + 1);
-    //     BYTE b = *(img + 2);
-    //     BYTE a = colorType == 4 || colorType == 6 ? *(img + 3) : 255;
+    for (long i = 0; i < imageSize; i++) {
+        BYTE r = *(img + 0);
+        BYTE g = *(img + 1);
+        BYTE b = *(img + 2);
+        BYTE a = colorType == 4 || colorType == 6 ? *(img + 3) : 255;
         
-    //     if (a > 0) {
-    //         BYTE average = (r + g + b) / 3;
-    //         *(img + 0) = average;
-    //         *(img + 1) = average;
-    //         *(img + 2) = average;
-    //     }
-    //     img += bytesPerPixel;
-    // }
+        if (a > 0) {
+            BYTE average = (r + g + b) / 3;
+            *(img + 0) = average;
+            *(img + 1) = average;
+            *(img + 2) = average;
+        }
+        img += bytesPerPixel;
+    }
     return image;
 }
 
