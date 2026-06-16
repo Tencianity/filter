@@ -12,16 +12,16 @@ char* pngChunkType(PNGCHUNK);
 int pngBytesPerPixel(BYTE colorType, BYTE bitDepth);
 int filterPNG(PNGHEADER, PNGINFOHEADER, char[100], FILE*, FILE*);
 
-RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
+BYTE* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth, BYTE interlace);
 
-DATASTREAM pngPushPixels(RGBA* image, long dataSize,
+DATASTREAM pngPushPixels(BYTE* image, long dataSize,
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth);
 void pngEncode(PNGHEADER, PNGINFOHEADER, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
-RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
-RGBA* pngUnlace(RGBA* image, DWORD witdh, DWORD height);
+BYTE* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
+BYTE* pngUnlace(BYTE* image, DWORD witdh, DWORD height);
 BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {

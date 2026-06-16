@@ -87,7 +87,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     printf("Uncompressing data stream for image filtering...\n");
     long uncompressedSize = (width * bytesPerPixel + 1) * height;
 
-    RGBA* image = pngPullPixels(idatStream, dataSize,
+    BYTE* image = pngPullPixels(idatStream, dataSize,
          width, height, colorType, bitDepth, pi.interlace);
     if (image == NULL) {
         printf("Unable to create pixels from image.\n");
@@ -362,7 +362,7 @@ void pngPrintChunk(PNGCHUNK chunk) {
     printf("\n");
 }
 
-RGBA* pngPullPixels(BYTE* idatStream, long dataSize, 
+BYTE* pngPullPixels(BYTE* idatStream, long dataSize, 
                      DWORD width, DWORD height,
                      BYTE colorType, BYTE bitDepth, BYTE interlace) {
 
@@ -395,11 +395,13 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
         return NULL;
     }
 
-    if (stream.total_out != uncompressedSize)
-        printf("<%ld> bytes of data unaccounted for.\n", (uncompressedSize - stream.total_out));
-        
+    if (stream.total_out != uncompressedSize) {
+        printf("\nERROR: <%ld> bytes of data unaccounted for.\n\n", (uncompressedSize - stream.total_out));
+        free(imageStream);
+        return NULL;
+    }
 
-    RGBA* image = pngUnfilter(imageStream, width, height);
+    BYTE* image = pngUnfilter(imageStream, width, height);
     if (image == NULL) {
         printf("Unable to create pixels from image.\n");
         free(imageStream);
@@ -414,14 +416,15 @@ RGBA* pngPullPixels(BYTE* idatStream, long dataSize,
     return image;
 }
 
-DATASTREAM pngPushPixels(RGBA* image, long dataSize,
+DATASTREAM pngPushPixels(BYTE* image, long dataSize,
                         DWORD width, DWORD height,
                         BYTE colorType, BYTE bitDepth) {
 
+    // Reassure global bytesPerPixel is set correctly
+    bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     long compressedSizeEstimate = dataSize / 2;
     BYTE* uncompressedData = calloc(dataSize, sizeof(BYTE));
     BYTE* compressedData = calloc(compressedSizeEstimate, sizeof(BYTE));
-    BYTE* imageStream = (BYTE*) image;
 
     if (uncompressedData == NULL) {
         printf("Not enough space to store uncompressed data.\n");
@@ -447,7 +450,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         FILTERTYPE bestFilter = NONE;
         int lowestScore = 999999;
         for (FILTERTYPE f = NONE; f <= PAETH; f++) {
-            int newScore = pngFilterScore(imageStream + currImageRow, imageByteWidth, imageOffset, bytesPerPixel, f);
+            int newScore = pngFilterScore(image + currImageRow, imageByteWidth, imageOffset, bytesPerPixel, f);
             if (newScore < lowestScore) {
                 lowestScore = newScore;
                 bestFilter = f;
@@ -459,23 +462,23 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
         BYTE* filteredData;
         switch (bestFilter) {
             case NONE:
-                memcpy(uncompressedData + dataOffset + 1, imageStream + imageOffset, imageByteWidth);
+                memcpy(uncompressedData + dataOffset + 1, image + imageOffset, imageByteWidth);
                 filteredData = calloc(dataByteWidth, sizeof(BYTE));
                 break;
             case SUB:
-                filteredData = pngSubFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
+                filteredData = pngSubFilter(image, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case UP:
-                filteredData = pngUpFilter(imageStream, imageByteWidth, imageOffset);
+                filteredData = pngUpFilter(image, imageByteWidth, imageOffset);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case AVERAGE:
-                filteredData = pngAverageFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
+                filteredData = pngAverageFilter(image, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             case PAETH:
-                filteredData = pngPaethFilter(imageStream, imageByteWidth, imageOffset, bytesPerPixel);
+                filteredData = pngPaethFilter(image, imageByteWidth, imageOffset, bytesPerPixel);
                 memcpy(uncompressedData + dataOffset + 1, filteredData, imageByteWidth);
                 break;
             default:
@@ -587,9 +590,9 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, DATASTREAM ds,
     }
 }
 
-RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
+BYTE* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
 
-    RGBA* image = calloc(width * height, sizeof(RGBA));
+    BYTE* image = calloc(width * height, bytesPerPixel);
     if (image == NULL) {
         printf("Unable to allocate space for image pixels.\n");
         return NULL;
@@ -600,7 +603,7 @@ RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
     
     for (int i = 0; i < height; i++) {
         long offset = i * byteWidth;
-        FILTERTYPE f = imageStream[offset];
+        FILTERTYPE f = *(imageStream + offset);
         BYTE* unfiltered;
         int noneFilter = !f; // TRUE if f is 0 (filtertype.NONE)
         
@@ -626,10 +629,10 @@ RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
         }
 
         // Simultaneously copy unfiltered data into a byte stream
-        // and that data sans the filter_byte into an RGBA array.
+        // and that data sans the filter_byte into byte array.
         if (noneFilter != TRUE)
             memcpy(imageStream + offset + 1, unfiltered, byteWidth - 1);
-        memcpy(image + i * width, unfiltered + 1, byteWidth - 1);
+        memcpy(image + i * (byteWidth - 1), unfiltered + 1, byteWidth - 1);
 
         if (noneFilter != TRUE)
             free(unfiltered);
@@ -638,7 +641,7 @@ RGBA* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
     return image;
 }
 
-RGBA* pngUnlace(RGBA* image, DWORD width, DWORD height) {
+BYTE* pngUnlace(BYTE* image, DWORD width, DWORD height) {
     
     const int ADAM7[8][8] = {
                         {1,6,4,6,2,6,4,6},
@@ -651,7 +654,7 @@ RGBA* pngUnlace(RGBA* image, DWORD width, DWORD height) {
                         {7,7,7,7,7,7,7,7}
     };
 
-    RGBA* unlacedImage = calloc(width * height, sizeof(RGBA));
+    BYTE* unlacedImage = calloc(width * height, bytesPerPixel);
     if (unlacedImage == NULL) {
         printf("Unable to allocate storage for image pixels.\n");
         return NULL;
@@ -668,14 +671,14 @@ RGBA* pngUnlace(RGBA* image, DWORD width, DWORD height) {
 
                 if (ADAM7[adamRow][adamCol] == pass) {
                     long pxlIndex = x + y * width;
-                    unlacedImage[interlacedIndex] = image[pxlIndex];
+                    *(unlacedImage + interlacedIndex) = *(image + pxlIndex);
                     interlacedIndex++;
                 }
             }
         }
     }
     
-    memcpy(image, unlacedImage, width * height * sizeof(RGBA));
+    memcpy(image, unlacedImage, width * height * bytesPerPixel);
     free(unlacedImage);
     return image;
 }

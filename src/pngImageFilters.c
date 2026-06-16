@@ -7,7 +7,7 @@
 #include "helpers.h"
 #include "png.h"
 
-RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngBlur(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     const BYTE BLURSIZE = 3;
@@ -49,30 +49,30 @@ RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorT
     return image;
 }
 
-RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngGrayscale(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
-    BYTE bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
-    long imageSize = width * height;
-    BYTE* img = (BYTE*) image;
+    // BYTE bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    // long imageSize = width * height;
+    // BYTE* img = (BYTE*) image;
 
-    for (long i = 0; i < imageSize; i++) {
-        BYTE r = *(img + 0);
-        BYTE g = *(img + 1);
-        BYTE b = *(img + 2);
-        BYTE a = colorType == 4 || colorType == 6 ? *(img + 3) : 255;
+    // for (long i = 0; i < imageSize; i++) {
+    //     BYTE r = *(img + 0);
+    //     BYTE g = *(img + 1);
+    //     BYTE b = *(img + 2);
+    //     BYTE a = colorType == 4 || colorType == 6 ? *(img + 3) : 255;
         
-        if (a > 0) {
-            BYTE average = (r + g + b) / 3;
-            *(img + 0) = average;
-            *(img + 1) = average;
-            *(img + 2) = average;
-        }
-        img += bytesPerPixel;
-    }
-    return (RGBA*) image;
+    //     if (a > 0) {
+    //         BYTE average = (r + g + b) / 3;
+    //         *(img + 0) = average;
+    //         *(img + 1) = average;
+    //         *(img + 2) = average;
+    //     }
+    //     img += bytesPerPixel;
+    // }
+    return image;
 }
 
-RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngReflect(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     BYTE* img = (BYTE*) image;
@@ -100,15 +100,17 @@ RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE col
     return image;
 }
 
-RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngSepia(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    BYTE* img = (BYTE*) image;
+
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
-            BYTE* r = &image[i*width + j].r;
-            BYTE* g = &image[i*width + j].g;
-            BYTE* b = &image[i*width + j].b;
+            BYTE* r = img + 0;
+            BYTE* g = img + 1;
+            BYTE* b = img + 2;
 
             if (bytesPerPixel == 4) {
                 DWORD tr = round((.393f * (float) (*r)) + (.769f * (float) (*g)) + (.189f * (float) (*b)));
@@ -119,13 +121,14 @@ RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE color
                 *g = tg <= 255 ? (BYTE) tg : 255;
                 *b = tb <= 255 ? (BYTE) tb : 255;
             }
+            img += bytesPerPixel;
         }
     }
     
     return image;
 }
 
-RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngRedShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     BYTE* img = (BYTE*) image;
@@ -153,7 +156,7 @@ RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE co
     return image;
 }
 
-RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngGreenShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     BYTE* img = (BYTE*) image;
@@ -181,7 +184,7 @@ RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE 
     return image;
 }
 
-RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
+BYTE* pngBlueShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     BYTE* img = (BYTE*) image;

@@ -4,12 +4,12 @@
 #include "helpers.h"
 #include "png.h"
 
-RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
-RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngBlur(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngGrayscale(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngReflect(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngSepia(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngRedShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngGreenShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
+BYTE* pngBlueShift(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType);
 
 #endif
