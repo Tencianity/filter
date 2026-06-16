@@ -31,7 +31,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     // Read all chunks of the png into an array of PNGCHUNK types
     DWORD numChunks = 0;
     long dataSize = 0;
-    int readingChunks = TRUE;
+    BYTE readingChunks = TRUE;
 
     while (readingChunks) {
 
@@ -101,6 +101,7 @@ int filterPNG(PNGHEADER pf, PNGINFOHEADER pi,
     while (filter[numFilters++] != -1);
     numFilters--;
 
+    // Apply each filter chosen in the CLI arguments
     for (int i = 0; i < numFilters; i++) {
         char f = filter[i];
         switch (f) {
@@ -198,7 +199,7 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     type[4] = '\0';
     
     // Have to reverse the 4-byte value to get actual length
-    DWORD trueLength = reverseLong(length);
+    DWORD trueLength = is_little_endian() ? reverseLong(length) : length;
     
     PNGCHUNK chunk;
     chunk.length = length;
@@ -206,9 +207,9 @@ PNGCHUNK pngReadChunk(FILE* pngFile) {
     
     if (trueLength != 0) {
         chunk.data = calloc(trueLength, sizeof(BYTE));
-        
         fread(chunk.data, sizeof(BYTE), trueLength, pngFile);
-    } else chunk.data = NULL;
+    }
+    else chunk.data = NULL;
     
     fread(&chunk.crc, sizeof(DWORD), 1, pngFile);
     
@@ -417,8 +418,9 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
                         DWORD width, DWORD height,
                         BYTE colorType, BYTE bitDepth) {
 
+    long compressedSizeEstimate = dataSize / 2;
     BYTE* uncompressedData = calloc(dataSize, sizeof(BYTE));
-    BYTE* compressedData = calloc(dataSize, sizeof(BYTE));
+    BYTE* compressedData = calloc(compressedSizeEstimate, sizeof(BYTE));
     BYTE* imageStream = (BYTE*) image;
 
     if (uncompressedData == NULL) {
@@ -497,7 +499,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
     stream.opaque = Z_NULL;
     stream.avail_in = dataSize;
     stream.next_in = uncompressedData;
-    stream.avail_out = dataSize;
+    stream.avail_out = compressedSizeEstimate;
     stream.next_out = compressedData;
     deflateInit(&stream, Z_BEST_COMPRESSION);
     int ret = deflate(&stream, Z_FINISH);
@@ -511,7 +513,7 @@ DATASTREAM pngPushPixels(RGBA* image, long dataSize,
     }
     
     free(uncompressedData);
-    DATASTREAM result = {stream.total_out, compressedData};
+    DATASTREAM result = {(long) stream.total_out, compressedData};
     return result;
 }
 
@@ -521,18 +523,35 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, DATASTREAM ds,
     fwrite(&pf, sizeof(pf), 1, outfile);
     fwrite(&pi, sizeof(pi), 1, outfile);
     
-    long datasize = ds.length;
+    long dataSize = ds.length;
     BYTE* data = ds.data;
+    DWORD numIdatChunks = 0;
 
-    DWORD chunkSize = 8192;
-    DWORD numIdatChunks = datasize / chunkSize;
-    DWORD overflowBytes = datasize % chunkSize;
-    if (overflowBytes != 0) numIdatChunks++;
+    // Get the size of IDAT chunks and how many there should be
+    for (int i = 0; i < numChunks; i++) {
+
+        char* type = pngChunkType(chunks[i]);
+        if (!strcmp(type, "IDAT")) {
+            numIdatChunks++;
+        }
+        free(type);
+    }
+
+    // Assure correct amount of data goes into each IDAT chunk
+    DWORD chunkSize = dataSize / numIdatChunks;
+    DWORD overflowBytes = dataSize % chunkSize;
     long imageIndex = 0;
     
     for (int i = 0; i < numChunks; i++) {
 
         char* type = pngChunkType(chunks[i]);
+        // if (!strcmp(type, "tEXt")) {
+        //     continue;
+        // } // debugging
+        
+        // Don't copy any unnecessary chunks
+        if (type[0] <= 'z' && type[0] >= 'a') continue;
+        
         if (strcmp(type, "IDAT")) {
             // Write non IDAT chunks without alteration
             fwrite(&chunks[i].length, sizeof(DWORD), 1, outfile);
@@ -545,8 +564,8 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, DATASTREAM ds,
             if (--numIdatChunks == 0 && overflowBytes != 0)
                 chunkSize = overflowBytes;
             
-            // Keep length and type the same.
-            // Write new compressed data and CRC32.
+            // Keep length and type the same
+            // Write new compressed data and CRC32
             chunks[i].length = is_little_endian() ? 
                 reverseLong(chunkSize) : chunkSize;
             

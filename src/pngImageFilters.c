@@ -51,7 +51,7 @@ RGBA* pngBlur(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorT
 
 RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
-    int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    BYTE bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
     long imageSize = width * height;
     BYTE* img = (BYTE*) image;
 
@@ -59,7 +59,7 @@ RGBA* pngGrayscale(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE c
         BYTE r = *(img + 0);
         BYTE g = *(img + 1);
         BYTE b = *(img + 2);
-        BYTE a = colorType == 3 || colorType == 6 ? *(img + 3) : 255;
+        BYTE a = colorType == 4 || colorType == 6 ? *(img + 3) : 255;
         
         if (a > 0) {
             BYTE average = (r + g + b) / 3;
@@ -84,6 +84,8 @@ RGBA* pngReflect(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE col
 
         for (DWORD col = 0; col < width / 2; col++) {
             for (int b = 0; b < bytesPerPixel; b++) {
+
+                // Simple value-swap equation with bit manipulation
                 left[b] = left[b] ^ right[b];
                 right[b] = left[b] ^ right[b];
                 left[b] = left[b] ^ right[b];
@@ -126,13 +128,14 @@ RGBA* pngSepia(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE color
 RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
     
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    BYTE* img = (BYTE*) image;
+
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
-            long p = i * width + j;
-            BYTE* r = &image[p].r;
-            BYTE* g = &image[p].g;
-            BYTE* b = &image[p].b;
+            BYTE* r = img + 0;
+            BYTE* g = img + 1;
+            BYTE* b = img + 2;
 
             if (bytesPerPixel == 4) {
                 DWORD tr = *r * 1.20f;
@@ -143,6 +146,7 @@ RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE co
                 *g = tg <= 255 ? (BYTE) tg : 255;
                 *b = tb <= 255 ? (BYTE) tb : 255;
             }
+            img += bytesPerPixel;
         }
     }
     
@@ -152,13 +156,14 @@ RGBA* pngRedShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE co
 RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    BYTE* img = (BYTE*) image;
+
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
-            long p = i * width + j;
-            BYTE* r = &image[p].r;
-            BYTE* g = &image[p].g;
-            BYTE* b = &image[p].b;
+            BYTE* r = img + 0;
+            BYTE* g = img + 1;
+            BYTE* b = img + 2;
 
             if (bytesPerPixel == 4) {
                 DWORD tr = *r * 0.90f;
@@ -169,6 +174,7 @@ RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE 
                 *g = tg <= 255 ? (BYTE) tg : 255;
                 *b = tb <= 255 ? (BYTE) tb : 255;
             }
+            img += bytesPerPixel;
         }
     }
     
@@ -178,13 +184,14 @@ RGBA* pngGreenShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE 
 RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorType) {
 
     int bytesPerPixel = pngBytesPerPixel(colorType, bitDepth);
+    BYTE* img = (BYTE*) image;
+
     for (long i = 0; i < height; i++) {
         for (long j = 0; j < width; j++) {
 
-            long p = i * width + j;
-            BYTE* r = &image[p].r;
-            BYTE* g = &image[p].g;
-            BYTE* b = &image[p].b;
+            BYTE* r = img + 0;
+            BYTE* g = img + 1;
+            BYTE* b = img + 2;
 
             if (bytesPerPixel == 4) {
                 DWORD tr = *r * 0.90f;
@@ -195,6 +202,7 @@ RGBA* pngBlueShift(RGBA* image, DWORD width, DWORD height, BYTE bitDepth, BYTE c
                 *g = tg <= 255 ? (BYTE) tg : 255;
                 *b = tb <= 255 ? (BYTE) tb : 255;
             }
+            img += bytesPerPixel;
         }
     }
     
