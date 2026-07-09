@@ -50,17 +50,22 @@ int main(int argc, char* argv[]) {
     //     return 3;
     // }
 
+    if (argv[optind] == NULL || argv[optind + 1] == NULL) {
+        printf("Usage: ./filter [flag (--blueshift --grayscale --help)] infile outfile\n");
+		return -1;
+    }
 
     // Remember filenames
     char* infile = argv[optind];
     char* outfile = argv[optind + 1];
+
 
     // Open input file
     FILE* inptr = fopen(infile, "rb");
 
     if (inptr == NULL) {
         printf("Could not open %s.\n", infile);
-        return 4;
+        return -1;
     }
 
     // Open output file
@@ -69,7 +74,7 @@ int main(int argc, char* argv[]) {
     if (outptr == NULL) {
         fclose(inptr);
         printf("Could not create %s.\n", outfile);
-        return 5;
+        return -1;
     }
 
     // Error if infile type not same as out file type
@@ -81,7 +86,7 @@ int main(int argc, char* argv[]) {
 
         fclose(inptr);
         fclose(outptr);
-        return 7;
+        return -1;
     }
 
     // Read the filetype (bmp or png for now)
@@ -107,7 +112,7 @@ int main(int argc, char* argv[]) {
                 printHeaderError(infoheader);
                 fclose(inptr);
                 fclose(outptr);
-                return 8;
+                return -1;
             default:
                 break;
         }
@@ -116,7 +121,7 @@ int main(int argc, char* argv[]) {
             printHeaderError(infoheader);
             fclose(inptr);
             fclose(outptr);
-            return 9;
+            return -1;
         }
 
         BITMAPV5INFOHEADER bi;
@@ -129,7 +134,7 @@ int main(int argc, char* argv[]) {
         PNGINFOHEADER pi;
         fread(&pi, sizeof(PNGINFOHEADER), 1, inptr);
 
-        if (!strcmp(pi.type, "ERR")) return 22;
+        if (!strcmp(pi.type, "ERR")) return -1;
 
         DWORD width = is_little_endian() ? reverseLong(pi.width) : pi.width;
         DWORD height = is_little_endian() ? reverseLong(pi.height) : pi.height;
@@ -160,7 +165,7 @@ int main(int argc, char* argv[]) {
     else {
         fclose(inptr);
         fclose(outptr);
-        return 10;
+        return -1;
     }
 
 
