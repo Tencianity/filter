@@ -7,9 +7,9 @@ int main(int argc, char* argv[]) {
         --grayscale: grayscale
         --reflection: reflection
         --sepia: sepia
-        --redshift: red shift
-        --greenshift: green shift
-        --blueshift: blue shift
+        --red: red shift
+        --green: green shift
+        --blue: blue shift
     */
 
     char* filters = "bgrsRGBh";
@@ -37,9 +37,9 @@ int main(int argc, char* argv[]) {
                 "  --grayscale     Converts the image to grayscale.\n"
                 "  --reflect       Reflects the image horizontally.\n"
                 "  --sepia         Applies a sepia filter to the image.\n"
-                "  --redshift      Increases the red values of the image.\n"
-                "  --greenshift    Increases the green values of the image.\n"
-                "  --blueshift     Increases the blue values of the image.\n");
+                "  --red      Increases the red values of the image.\n"
+                "  --green    Increases the green values of the image.\n"
+                "  --blue     Increases the blue values of the image.\n");
             return 0;
         }
     }
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     // }
 
     if (argv[optind] == NULL || argv[optind + 1] == NULL) {
-        printf("Usage: ./filter [flag (--blueshift --grayscale --help)] infile outfile\n");
+        printf("Usage: ./filter [flag (--blue --grayscale --help)] infile outfile\n");
 		return -1;
     }
 

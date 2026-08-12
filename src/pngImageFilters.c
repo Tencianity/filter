@@ -46,6 +46,9 @@ BYTE* pngBlur(BYTE* image, DWORD width, DWORD height, BYTE bitDepth, BYTE colorT
     
     memcpy(img, imageCopy, byteWidth * height);
     free(imageCopy);
+    printf("Buffer size: %lu bytes\n", (unsigned long) (byteWidth * height));
+    printf("Blur Params -> W: %u, H: %u, BPP: %d, Total: %lu bytes\n", 
+       width, height, bytesPerPixel, (unsigned long)(width * height * bytesPerPixel));
     return image;
 }
 

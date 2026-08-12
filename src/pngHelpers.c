@@ -401,17 +401,21 @@ BYTE* pngPullPixels(BYTE* idatStream, long dataSize,
         return NULL;
     }
 
-    BYTE* image = pngUnfilter(imageStream, width, height);
+    
+    BYTE* image = NULL;
+    if (interlace == 1) {
+        image = pngUnlace(imageStream, width, height, colorType, bitDepth);
+    }
+    else {
+        image = pngUnfilter(imageStream, width, height);
+    }
+    
     if (image == NULL) {
         printf("Unable to create pixels from image.\n");
         free(imageStream);
         return NULL;
     }
-    
-    if (interlace == 1) {
-        pngUnlace(image, width, height);
-    }
-    
+
     free(imageStream);
     return image;
 }
@@ -586,7 +590,6 @@ void pngEncode(PNGHEADER pf, PNGINFOHEADER pi, DATASTREAM ds,
             imageIndex += chunkSize;
         }
         free(type);
-
     }
 }
 
@@ -631,7 +634,7 @@ BYTE* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
         // Simultaneously copy unfiltered data into a byte stream
         // and that data sans the filter_byte into byte array.
         if (noneFilter != TRUE)
-            memcpy(imageStream + offset + 1, unfiltered, byteWidth - 1);
+            memcpy(imageStream + offset + 1, unfiltered + 1, byteWidth - 1);
         memcpy(image + i * (byteWidth - 1), unfiltered + 1, byteWidth - 1);
 
         if (noneFilter != TRUE)
@@ -641,46 +644,65 @@ BYTE* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height) {
     return image;
 }
 
-BYTE* pngUnlace(BYTE* image, DWORD width, DWORD height) {
-    
-    const int ADAM7[8][8] = {
-                        {1,6,4,6,2,6,4,6},
-                        {7,7,7,7,7,7,7,7},
-                        {5,6,5,6,5,6,5,6},
-                        {7,7,7,7,7,7,7,7},
-                        {3,6,4,6,3,6,4,6},
-                        {7,7,7,7,7,7,7,7},
-                        {5,6,5,6,5,6,5,6},
-                        {7,7,7,7,7,7,7,7}
-    };
+BYTE* pngUnlace(BYTE* imageStream, DWORD width, DWORD height, 
+                BYTE colorType, BYTE bitDepth) {
 
-    BYTE* unlacedImage = calloc(width * height, bytesPerPixel);
-    if (unlacedImage == NULL) {
-        printf("Unable to allocate storage for image pixels.\n");
+    int bpp = pngBytesPerPixel(colorType, bitDepth);
+    
+    // Calculate total size of the final unlaced pixel buffer
+    long dstRowBytes = (bitDepth < 8) ? (width * bitDepth + 7) / 8 : width * bpp;
+    long totalCanvasSize = dstRowBytes * height;
+
+    BYTE* finalImage = calloc(totalCanvasSize, sizeof(BYTE));
+    if (finalImage == NULL) {
+        printf("Unable to allocate storage for unlaced image.\n");
         return NULL;
     }
 
-    long interlacedIndex = 0;
-    for (int pass = 1; pass <= 7; pass++) {
+    const int startX[7] = {0, 4, 0, 2, 0, 1, 0};
+    const int startY[7] = {0, 0, 4, 0, 2, 0, 1};
+    const int stepX[7]  = {8, 8, 4, 4, 2, 2, 1};
+    const int stepY[7]  = {8, 8, 8, 4, 4, 2, 2};
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                
-                int adamRow = y % 8;
-                int adamCol = x % 8;
+    BYTE* streamPtr = imageStream;
 
-                if (ADAM7[adamRow][adamCol] == pass) {
-                    long pxlIndex = x + y * width;
-                    *(unlacedImage + interlacedIndex) = *(image + pxlIndex);
-                    interlacedIndex++;
-                }
+    for (int p = 0; p < 7; p++) {
+        // Calculate pass dimensions
+        DWORD passW = (width > startX[p]) ? (width - startX[p] + stepX[p] - 1) / stepX[p] : 0;
+        DWORD passH = (height > startY[p]) ? (height - startY[p] + stepY[p] - 1) / stepY[p] : 0;
+
+        // An empty pass consumes 0 bytes from the stream
+        if (passW == 0 || passH == 0) continue;
+
+        // Unfilter this specific pass sub-image
+        long passRowBytes = (bitDepth < 8) ? (passW * bitDepth + 7) / 8 : passW * bpp;
+        long passStreamSize = (passRowBytes + 1) * passH;
+
+        BYTE* passPixels = pngUnfilter(streamPtr, passW, passH);
+        if (passPixels == NULL) {
+            printf("Error unfiltering Adam7 pass %d\n", p + 1);
+            free(finalImage);
+            return NULL;
+        }
+
+        // Scatter pass pixels into the final image canvas
+        for (DWORD py = 0; py < passH; py++) {
+            DWORD dy = startY[p] + (py * stepY[p]);
+
+            for (DWORD px = 0; px < passW; px++) {
+                DWORD dx = startX[p] + (px * stepX[p]);
+
+                copyPixel(passPixels, passW, px, py,
+                          finalImage, width, dx, dy,
+                          bitDepth, bpp);
             }
         }
+
+        free(passPixels);
+        streamPtr += passStreamSize; // Advance stream pointer to next pass
     }
-    
-    memcpy(image, unlacedImage, width * height * bytesPerPixel);
-    free(unlacedImage);
-    return image;
+
+    return finalImage;
 }
 
 BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize) {

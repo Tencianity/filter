@@ -135,7 +135,7 @@ BYTE* pngUnUpFilter(BYTE* data, long byteWidth, long offset) {
         BYTE currByte = data[offset + i];
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = data[i - byteWidth];
+        else upByte = data[offset + i - byteWidth];
 
         // unsigned int (BYTE) auto applies mod 256.
         unUpData[i] = (currByte + upByte);
@@ -188,7 +188,7 @@ BYTE* pngUnAverageFilter(BYTE* data, long byteWidth, long offset, int bpp) {
 
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = data[i - byteWidth];  // use reconstructed data from previous row
+        else upByte = data[offset + i - byteWidth];  // use reconstructed data from previous row
 
         unAvgData[i] = currByte + ((DWORD) (( (DWORD) prevByte + (DWORD) upByte ) / 2));
     }
@@ -221,9 +221,9 @@ BYTE* pngPaethFilter(BYTE* data, long byteWidth, long offset, int bpp) {
         else upLeftByte = data[offset + i - byteWidth - bpp];
 
         DWORD v = upByte + prevByte - upLeftByte;
-        DWORD vl = v - prevByte;
-        DWORD vu = v - upByte;
-        DWORD vul = v - upLeftByte;
+        DWORD vl = abs(v - prevByte);
+        DWORD vu = abs(v - upByte);
+        DWORD vul = abs(v - upLeftByte);
 
         if (vl <= vu && vl <= vul) paethData[i] = currByte - prevByte;
         else if (vu <= vul) paethData[i] = currByte - upByte;
@@ -251,16 +251,16 @@ BYTE* pngUnPaethFilter(BYTE* data, long byteWidth, long offset, int bpp) {
 
         BYTE upByte;
         if (offset < byteWidth) upByte = 0;  // first scanline, no up byte
-        else upByte = data[i - byteWidth];  // use reconstructed data from previous row
+        else upByte = data[offset + i - byteWidth];  // use reconstructed data from previous row
 
         BYTE upLeftByte;
         if (i - bpp < 1 || offset < byteWidth) upLeftByte = 0;  // first row or first column
         else upLeftByte = data[i - byteWidth - bpp];  // use reconstructed data from previous row
 
         DWORD v = upByte + prevByte - upLeftByte;
-        DWORD vl = v - prevByte;
-        DWORD vu = v - upByte;
-        DWORD vul = v - upLeftByte;
+        DWORD vl = abs(v - prevByte);
+        DWORD vu = abs(v - upByte);
+        DWORD vul = abs(v - upLeftByte);
 
         if (vl <= vu && vl <= vul) unPaethData[i] = currByte + prevByte;
         else if (vu <= vul) unPaethData[i] = currByte + upByte;

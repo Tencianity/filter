@@ -21,7 +21,7 @@ DATASTREAM pngPushPixels(BYTE* image, long dataSize,
                      BYTE colorType, BYTE bitDepth);
 void pngEncode(PNGHEADER, PNGINFOHEADER, DATASTREAM, PNGCHUNK*, DWORD, FILE*);
 BYTE* pngUnfilter(BYTE* imageStream, DWORD width, DWORD height);
-BYTE* pngUnlace(BYTE* image, DWORD witdh, DWORD height);
+BYTE* pngUnlace(BYTE* image, DWORD witdh, DWORD height, BYTE colorType, BYTE bitDepth);
 BYTE* pngGroupData(PNGCHUNK* chunks, DWORD numChunks, long dataSize);
 
 static inline DWORD pngChunkSize(PNGCHUNK chunk) {

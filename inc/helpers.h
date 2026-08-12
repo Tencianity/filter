@@ -77,5 +77,8 @@ char* getFileType(char* file);
 DWORD reverseLong(DWORD num);
 DWORD buildLong(BYTE bytes[4]);
 int is_little_endian();
+void copyPixel(BYTE* src, DWORD srcW, DWORD sx, DWORD sy,
+                      BYTE* dst, DWORD dstW, DWORD dx, DWORD dy,
+                      BYTE bitDepth, int bpp);
 
 #endif
