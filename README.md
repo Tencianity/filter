@@ -6,12 +6,12 @@
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 
-<style>
+<!-- style>
 	dl dt {
 		color: lightyellow;
 		text-transform: underline;
 	}
-</style>
+</style -->
 
 <details id="table-of-contents">
 	<summary>Table of Contents</summary>
