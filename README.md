@@ -16,7 +16,7 @@
 	</ol>
 </details>
 
-##Description
+## Description
 <article style="text-align: left;" id="description">
 	<p style="color: gold">
 		The goal of this project is to provide an intuitive CLI for adding various	<br>
@@ -46,7 +46,7 @@
 	</dl>
 </article>
 
-##Usage
+## Usage
 <article id="usage">
 	<p>./filter [OPTIONS] infile outfile</p>
   <p>-b, --blur         applies blur filter to image</p>
