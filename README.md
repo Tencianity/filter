@@ -1,17 +1,12 @@
-<h1>Tencianity's Filter</h1>
+#Tencianity's Filter
 
-<!-- Markdown "reference style" links format courtesy of https://github.com/othneildrew/Best-README-Template -->
-<!-- Additionally inspiration for the formatting of the README.md can be dedicated to the Best-README-Template project-->
+<!-- Markdown formatting for "reference style" links: courtesy of https://github.com/othneildrew/Best-README-Template -->
+<!-- Additionally most inspiration for the formatting of this README.md can be dedicated to the Best-README-Template project -->
+
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 
-<!-- style>
-	dl dt {
-		color: lightyellow;
-		text-transform: underline;
-	}
-</style -->
 
 <details id="table-of-contents">
 	<summary>Table of Contents</summary>
@@ -21,7 +16,7 @@
 	</ol>
 </details>
 
-<h3 style="color: white">Description</h3>
+##Description
 <article style="text-align: left;" id="description">
 	<p style="color: gold">
 		The goal of this project is to provide an intuitive CLI for adding various	<br>
@@ -51,9 +46,16 @@
 	</dl>
 </article>
 
-<h3>Usage</h3>
+##Usage
 <article id="usage">
-	<p>WIP</p>
+	<p>./filter [OPTIONS] infile outfile</p>
+  <p>-b, --blur         applies blur filter to image</p>
+  <p>-g, --greyscale    applies greyscale filter to image</p>
+  <p>-r, --reflect      applies reflect filter to image</p>
+  <p>-s, --sepia        applies sepia filter to image</p>
+  <p>-R, --red          applies red-shift filter to image</p>
+  <p>-G, --green        applies green-shift filter to image</p>
+  <p>-B, --blue         applies blue-shift filter to image</p>
 </article>
 
 <!-- Markdown "reference style" links format courtesy of https://github.com/othneildrew/Best-README-Template -->
