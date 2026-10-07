@@ -1,4 +1,4 @@
-#Tencianity's Filter
+# Tencianity's Filter
 
 <!-- Markdown formatting for "reference style" links: courtesy of https://github.com/othneildrew/Best-README-Template -->
 <!-- Additionally most inspiration for the formatting of this README.md can be dedicated to the Best-README-Template project -->
